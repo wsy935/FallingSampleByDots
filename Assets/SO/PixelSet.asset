@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: PixelSet
+  m_EditorClassIdentifier: Assembly-CSharp::PixelSet
+  pixels:
+  - {fileID: 11400000, guid: ff05a34b40bc35d4780de14f339036de, type: 2}
+  - {fileID: 11400000, guid: 80e136af2cfcd2c4c9f37cd6c880ec0c, type: 2}
+  - {fileID: 11400000, guid: 06a61c901b61aa448a0ac8440ffe185d, type: 2}
+  - {fileID: 11400000, guid: fd77be591e97837498f7e4d1fac6dafe, type: 2}
