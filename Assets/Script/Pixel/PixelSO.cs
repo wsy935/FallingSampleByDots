@@ -1,15 +1,18 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "Pixel", menuName = "SO/Pixel")]
-public class PixelSO : ScriptableObject
+namespace Pixel
 {
-    public PixelType type;
-    public Color32 color;
-    public PixelType interactionMask;
-}
+    [CreateAssetMenu(fileName = "Pixel", menuName = "SO/Pixel")]
+    public class PixelSO : ScriptableObject
+    {
+        public PixelType type;
+        public Color32 color;
+        public PixelType interactionMask;
+    }
 
-[CreateAssetMenu(fileName = "PixelSet", menuName = "SO/PixelSet")]
-public class PixelSet : ScriptableObject
-{
-    public PixelSO[] pixels;
+    [CreateAssetMenu(fileName = "PixelSet", menuName = "SO/PixelSet")]
+    public class PixelSet : ScriptableObject
+    {
+        public PixelSO[] pixels;
+    }
 }
