@@ -3,20 +3,31 @@ using Unity.Burst;
 using Unity.Collections;
 
 namespace Pixel
-{        
+{
+    public struct ChunkConfig
+    {
+        public int edge;
+        public int border;
+    }
     [BurstCompile]
-    public partial struct SimulationSystem: ISystem
+    public partial struct SimulationSystem : ISystem
     {
         private PixelConfigMap pixelConfigMap;
-                
+        private ChunkConfig chunkConfig;
         public void OnCreate(ref SystemState state)
         {
+            var fsw = FallingSandWorld.Instance;
             pixelConfigMap = new();
-            foreach (var e in SystemAPI.Query<RefRO<PixelSOConfig>>())
+            foreach (var e in fsw.PixelSet.pixels)
             {
-                var config = new PixelConfig(e.ValueRO.type, e.ValueRO.interactionMask,SimulationHandlers.GetHandler(e.ValueRO.type));
-                pixelConfigMap.AddConfig(e.ValueRO.type, config);
-            }            
+                PixelConfig config = new(e.type, e.interactionMask, e.handler);
+                pixelConfigMap.AddConfig(e.type, config);
+            }
+            chunkConfig = new()
+            {
+                edge = fsw.ChunkEdge,
+                border = fsw.ChunkBorderSize
+            };
         }
 
         [BurstCompile]
@@ -28,24 +39,13 @@ namespace Pixel
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
-        {        
-            if (!SystemAPI.TryGetSingleton<WorldConfig>(out var worldConfig))
-                return;
-
-            // 使用Job进行并行处理
-            var job = new UpdateChunkJob
-            {
-                config = worldConfig
-            };
-
-            job.ScheduleParallel();
+        {
         }
 
         [BurstCompile]
         private partial struct UpdateChunkJob : IJobEntity
-        {            
-            [ReadOnly] public WorldConfig config;
-
+        {
+            [ReadOnly] PixelConfigMap configMap;
             [BurstCompile]
             public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
             {
@@ -55,7 +55,7 @@ namespace Pixel
                 {
                     for (int x = chunkBorder; x < chunkEdge + chunkBorder; x++)
                     {
-                        // dispatcher.TryExecute(x, y, ref buffer, in config);
+
                     }
                 }
             }
@@ -67,7 +67,7 @@ namespace Pixel
         //     [ReadOnly] public Config config;
         //     public void Execute()
         //     {
-                
+
         //     }
         // }
     }

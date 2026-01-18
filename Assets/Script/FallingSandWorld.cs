@@ -9,39 +9,31 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
     [SerializeField] private int chunkEdge = 8;
-    [SerializeField] private int borderWidth = 1;
+    [SerializeField] private int borderSize = 1;
     [SerializeField] private PixelSet pixelSet;
+
+    public static FallingSandWorld Instance { get; private set; }
+    
+    public int ChunkEdge => chunkEdge;
+    public int ChunkBorderSize => borderSize;
+    public PixelSet PixelSet => pixelSet;
+
+    void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(this);
+        }
+    }
 
     void Start()
     {
         CreateChunk();
-        CreateWorldConfig();
     }
-
-    private void CreatePixelSOConfig()
-    {
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        foreach(var e in pixelSet.pixels)
-        {
-            var entity = em.CreateEntity();
-            em.AddComponentData(entity, new PixelSOConfig()
-            {
-                type = e.type,
-                interactionMask = e.interactionMask
-            });
-        }
-    }
-
-    private void CreateWorldConfig()
-    {
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;        
-        WorldConfig worldConfig = new()
-        {
-            Width = worldWidth,
-            Height = worldHeight,            
-        };        
-        em.CreateSingleton(worldConfig);
-    }    
 
     private void CreateChunk()
     {
@@ -58,7 +50,7 @@ public class FallingSandWorld : MonoBehaviour
                     isDirty = false
                 });
                 var buffer = em.AddBuffer<PixelBuffer>(entity);
-                buffer.Capacity = (int)Math.Sqrt(chunkEdge + borderWidth);
+                buffer.Capacity = (int)Math.Sqrt(chunkEdge + borderSize);
                 for (int k = 0; k < buffer.Length; k++)
                 {
                     buffer.Add(new PixelBuffer() { type = PixelType.Empty });

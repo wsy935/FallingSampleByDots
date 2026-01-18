@@ -9,11 +9,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 06a782a52a9bbd944a9d7b63a00dfea3, type: 3}
   m_Name: PixelSet
-  m_EditorClassIdentifier: Assembly-CSharp::PixelSet
-  pixels:
-  - {fileID: 11400000, guid: ff05a34b40bc35d4780de14f339036de, type: 2}
-  - {fileID: 11400000, guid: 80e136af2cfcd2c4c9f37cd6c880ec0c, type: 2}
-  - {fileID: 11400000, guid: 06a61c901b61aa448a0ac8440ffe185d, type: 2}
-  - {fileID: 11400000, guid: fd77be591e97837498f7e4d1fac6dafe, type: 2}
+  m_EditorClassIdentifier: Assembly-CSharp::Pixel.PixelSet
+  pixels: []
