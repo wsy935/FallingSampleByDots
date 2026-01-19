@@ -1,31 +1,33 @@
 using Unity.Entities;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Pixel
 {
-    public struct ChunkConfig
-    {
-        public int edge;
-        public int border;
-        public int RealEdge => edge + border*2;
-    }
-
-    [BurstCompile]    
-    public partial struct SimulationSystem : ISystem,ISystemStartStop
+    [BurstCompile]
+    public partial struct SimulationSystem : ISystem, ISystemStartStop
     {
         private PixelConfigMap pixelConfigMap;
+        private NativeHashMap<int2, Entity> chunkMap;
         private ChunkConfig chunkConfig;
         private bool isInit;
 
         public void OnCreate(ref SystemState state)
         {
-            isInit = false;            
+            isInit = false;
         }
 
         public void OnStartRunning(ref SystemState state)
         {
             if (isInit) return;
+
+            chunkMap = new NativeHashMap<int2, Entity>(100, Allocator.Persistent);
+            foreach (var (chunk, entity) in SystemAPI.Query<RefRO<PixelChunk>>().WithEntityAccess())
+            {
+                chunkMap.TryAdd(chunk.ValueRO.pos, entity);
+            }
+
             var fsw = FallingSandWorld.Instance;
             pixelConfigMap = new(fsw.PixelSet.pixels.Length);
             foreach (var e in fsw.PixelSet.pixels)
@@ -43,7 +45,7 @@ namespace Pixel
         }
 
         public void OnStopRunning(ref SystemState state)
-        {            
+        {
         }
 
         [BurstCompile]
@@ -72,13 +74,14 @@ namespace Pixel
             [BurstCompile]
             public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
             {
-                if (!chunk.isDirty) return;                
+                if (!chunk.isDirty) return;
                 int chunkEdge = chunkConfig.edge;
                 int chunkBorder = chunkConfig.border;
                 SimulationContext context = new()
                 {
                     chunkConfig = chunkConfig,
-                    buffer = buffer
+                    buffer = buffer,
+                    random = new Random(math.hash(chunk.pos))
                 };
                 for (int y = chunkBorder; y < chunkConfig.RealEdge; y++)
                 {
@@ -92,15 +95,41 @@ namespace Pixel
                 }
             }
         }
-        // [BurstCompile]
-        // private partial struct UpdateChunkBorderJob : IJobEntity
-        // {
-        //     [ReadOnly] public SimulationDispatcher dispatcher;
-        //     [ReadOnly] public Config config;
-        //     public void Execute()
-        //     {
 
-        //     }
-        // }
+        [BurstCompile]
+        private partial struct SyncBorderJob : IJobEntity
+        {
+            [ReadOnly] public NativeHashMap<int2, Entity> chunkMap;
+            [ReadOnly] public ChunkConfig chunkConfig;
+            public BufferLookup<PixelBuffer> bufferLookup;
+
+            [BurstCompile]
+            public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
+            {
+                int border = chunkConfig.border;
+                int edge = chunkConfig.edge;
+
+                // 同步左边界：从左侧 chunk 复制数据
+                if (chunkMap.TryGetValue(chunk.pos + new int2(-1, 0), out Entity leftEntity))
+                {
+                    var leftBuffer = bufferLookup[leftEntity];
+                    for (int y = border; y < edge + border; y++)
+                    {
+                        for (int b = 0; b < border; b++)
+                        {
+                            // // int srcIdx = GetIndex(edge + border + b, y);
+                            // // int dstIdx = GetIndex(b, y);
+                            // buffer[dstIdx] = leftBuffer[srcIdx];
+                        }
+                    }
+                }
+            }
+
+            [BurstCompile]
+            public void SyncBorder(ref DynamicBuffer<PixelBuffer> buffer, int2 directions)
+            {
+
+            }
+        }
     }
 }

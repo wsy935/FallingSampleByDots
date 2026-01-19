@@ -6,6 +6,13 @@ using UnityEngine;
 
 namespace Pixel
 {
+    public struct ChunkConfig
+    {
+        public int edge;
+        public int border;
+        public int RealEdge => edge + border * 2;
+    }
+
     public struct PixelConfig
     {
         public static PixelConfig Empty => new();
@@ -25,7 +32,7 @@ namespace Pixel
     {
         private readonly NativeHashMap<int, PixelConfig> configs;
         public bool isCreated;
-        
+
         public PixelConfigMap(int length)
         {
             configs = new(length, Allocator.Persistent);
@@ -62,7 +69,7 @@ namespace Pixel
             {
                 isCreated = false;
                 configs.Dispose();
-            }                
+            }
         }
     }
 }

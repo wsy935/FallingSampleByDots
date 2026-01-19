@@ -20,7 +20,7 @@ public class FallingSandWorld : MonoBehaviour
     public int WorldWidth => worldWidth;
     public int WorldHeight => worldHeight;
     public int ChunkEdge => chunkEdge;
-    public int ChunkBorder => borderSize;    
+    public int ChunkBorder => borderSize;
     public PixelSet PixelSet => pixelSet;
     public Dictionary<PixelType, PixelSO> PixelMap => pixelMap;
 
@@ -66,7 +66,7 @@ public class FallingSandWorld : MonoBehaviour
             }
         }
     }
-    
+
     public int GetWorldIdx(in PixelChunk pixelChunk, int x, int y)
     {
         var pos = pixelChunk.pos;
@@ -75,9 +75,9 @@ public class FallingSandWorld : MonoBehaviour
         int worldY = pos.y * chunkEdge + y;
         return worldY * worldWidth + worldX;
     }
-    
+
     public int GetChunkIdx(int x, int y)
-    {                
-        return y * chunkEdge + x;
+    {
+        return y * (chunkEdge + ChunkBorder * 2) + x;
     }
 }

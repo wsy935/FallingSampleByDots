@@ -1,8 +1,9 @@
 using Unity.Burst;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Pixel
-{    
+{
     /// <summary>
     /// 存储当前Chunk模拟所需使用的上下文,以及相关方法
     /// </summary>
@@ -10,8 +11,9 @@ namespace Pixel
     public struct SimulationContext
     {
         public DynamicBuffer<PixelBuffer> buffer;
-        public ChunkConfig chunkConfig;        
+        public ChunkConfig chunkConfig;
         public PixelConfig currentPixelConfig;
+        public Random random;
 
         [BurstCompile]
         public int GetIndex(int x, int y) => x + y * chunkConfig.RealEdge;
@@ -20,7 +22,7 @@ namespace Pixel
         public PixelBuffer GetPixel(int x, int y)
         {
             return buffer[GetIndex(x, y)];
-        }                    
+        }
 
         [BurstCompile]
         public void SetPixel(int x, int y, PixelBuffer pixel)
@@ -36,7 +38,7 @@ namespace Pixel
             Swap(x1, y1, x2, y2);
             return true;
         }
-        
+
         [BurstCompile]
         public void Swap(int x1, int y1, int x2, int y2)
         {
@@ -45,14 +47,20 @@ namespace Pixel
             (buffer[idx1], buffer[idx2]) = (buffer[idx2], buffer[idx1]);
         }
 
+        /// <summary>
+        /// 禁止移动到Border
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
         [BurstCompile]
         public bool IsInBounds(int x, int y)
         {
-            return x >= 0 && x < chunkConfig.RealEdge &&
-                   y >= 0 && y < chunkConfig.RealEdge;
+            return x >= chunkConfig.border && x < chunkConfig.edge + chunkConfig.border &&
+                   y >= chunkConfig.border && y < chunkConfig.edge + chunkConfig.border;
         }
 
-        [BurstCompile]        
+        [BurstCompile]
         public bool CanInteract(int x, int y)
         {
             if (!IsInBounds(x, y)) return false;

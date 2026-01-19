@@ -6,16 +6,25 @@ using UnityEngine;
 [RequireComponent(typeof(SpriteRenderer))]
 public class FallingSandRender : MonoBehaviour
 {
+    public static FallingSandRender Instance { get; private set; }
     SpriteRenderer sr;
     Texture2D tex;
     Color32[] pixelBuffer;
     public int pixelPerUnit = 100;
-    
+
+    private void Awake()
+    {
+        if (Instance == null)
+            Instance = this;
+        else
+            Destroy(this);
+    }
+
     private void Start()
     {
         var fsw = FallingSandWorld.Instance;
         sr = GetComponent<SpriteRenderer>();
-        tex = new(fsw.WorldWidth, fsw.WorldHeight,TextureFormat.RGBA32,false)
+        tex = new(fsw.WorldWidth, fsw.WorldHeight, TextureFormat.RGBA32, false)
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
@@ -32,13 +41,13 @@ public class FallingSandRender : MonoBehaviour
     private void UpdateTexture()
     {
         var fsw = FallingSandWorld.Instance;
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;        
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         var query = em.CreateEntityQuery(typeof(PixelBuffer), typeof(PixelChunk));
         var entitys = query.ToEntityArray(Allocator.Temp);
         foreach (var entity in entitys)
         {
             var chunk = em.GetComponentData<PixelChunk>(entity);
-            var buffer = em.GetBuffer<PixelBuffer>(entity, true);            
+            var buffer = em.GetBuffer<PixelBuffer>(entity, true);
             for (int i = 0; i < fsw.ChunkEdge; i++)
             {
                 for (int j = 0; j < fsw.ChunkEdge; j++)
@@ -57,10 +66,10 @@ public class FallingSandRender : MonoBehaviour
                         pixelBuffer[worldIdx] = Color.black; // 默认颜色
                     }
                 }
-            }            
+            }
         }
-        
+
         tex.SetPixels32(pixelBuffer);
-        tex.Apply();        
+        tex.Apply();
     }
 }

@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using Pixel;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// 像素写入器 - 支持在世界中写入像素
@@ -11,8 +13,6 @@ public class PixelWriter : MonoBehaviour
     [Header("写入设置")]
     [SerializeField] private PixelType pixelType = PixelType.Sand;
     [SerializeField] private int brushSize = 3;
-    [SerializeField] private KeyCode drawKey = KeyCode.Mouse0;
-    [SerializeField] private KeyCode eraseKey = KeyCode.Mouse1;
 
     private Camera mainCamera;
     private FallingSandWorld fsw;
@@ -27,28 +27,29 @@ public class PixelWriter : MonoBehaviour
 
     private void Update()
     {
+        var keyboard = Keyboard.current;
+        var mouse = Mouse.current;
         // 绘制像素
-        if (Input.GetKey(drawKey))
+        if (mouse.leftButton.isPressed)
         {
             Vector2 worldPos = GetMouseWorldPosition();
             WritePixel(worldPos, pixelType);
         }
 
         // 擦除像素
-        if (Input.GetKey(eraseKey))
+        if (mouse.rightButton.isPressed)
         {
             Vector2 worldPos = GetMouseWorldPosition();
             WritePixel(worldPos, PixelType.Empty);
         }
 
-        // 数字键切换像素类型
-        if (Input.GetKeyDown(KeyCode.Alpha1)) pixelType = PixelType.Empty;
-        if (Input.GetKeyDown(KeyCode.Alpha2)) pixelType = PixelType.Sand;
-        if (Input.GetKeyDown(KeyCode.Alpha3)) pixelType = PixelType.Water;
-        if (Input.GetKeyDown(KeyCode.Alpha4)) pixelType = PixelType.Wall;
+        // 数字键切换像素类型        
+        if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
+        if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
+        if (keyboard[Key.Digit3].isPressed) pixelType = PixelType.Wall;
 
         // 鼠标滚轮调整笔刷大小
-        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        float scroll = mouse.scroll.value.y;
         if (scroll != 0)
         {
             brushSize = Mathf.Clamp(brushSize + (int)Mathf.Sign(scroll), 1, 20);
@@ -60,14 +61,14 @@ public class PixelWriter : MonoBehaviour
     /// </summary>
     private Vector2 GetMouseWorldPosition()
     {
-        Vector3 mousePos = Input.mousePosition;
+        Vector2 mousePos = Mouse.current.position.value;
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(mousePos);
-        
+
         // 转换为像素坐标（假设sprite的pivot在中心）
-        float pixelPerUnit = 64f; // 与 FallingSandRender 保持一致
+        float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
         int pixelX = Mathf.FloorToInt((worldPos.x + fsw.WorldWidth / (2f * pixelPerUnit)) * pixelPerUnit);
         int pixelY = Mathf.FloorToInt((worldPos.y + fsw.WorldHeight / (2f * pixelPerUnit)) * pixelPerUnit);
-        
+
         return new Vector2(pixelX, pixelY);
     }
 
@@ -79,6 +80,7 @@ public class PixelWriter : MonoBehaviour
         int centerX = (int)worldPos.x;
         int centerY = (int)worldPos.y;
 
+        Dictionary<int2, List<int>> idxMap = new();
         // 使用圆形笔刷
         for (int dy = -brushSize; dy <= brushSize; dy++)
         {
@@ -90,27 +92,24 @@ public class PixelWriter : MonoBehaviour
 
                 int x = centerX + dx;
                 int y = centerY + dy;
-
-                WritePixelAt(x, y, type);
+                if (x < 0 || x >= fsw.WorldWidth || y < 0 || y >= fsw.WorldHeight)
+                    continue;
+                // 计算chunk坐标和局部坐标
+                int chunkX = x / fsw.ChunkEdge;
+                int chunkY = y / fsw.ChunkEdge;
+                int localX = x % fsw.ChunkEdge + fsw.ChunkBorder;
+                int localY = y % fsw.ChunkEdge + fsw.ChunkBorder;
+                int2 chunkPos = new(chunkX, chunkY);
+                if (idxMap.TryGetValue(chunkPos, out var idxs))
+                {
+                    idxs.Add(fsw.GetChunkIdx(localX, localY));
+                }
+                else
+                {
+                    idxMap[chunkPos] = new() { fsw.GetChunkIdx(localX, localY) };
+                }
             }
         }
-    }
-
-    /// <summary>
-    /// 在指定像素坐标写入单个像素
-    /// </summary>
-    public void WritePixelAt(int x, int y, PixelType type)
-    {
-        // 边界检查
-        if (x < 0 || x >= fsw.WorldWidth || y < 0 || y >= fsw.WorldHeight)
-            return;
-
-        // 计算chunk坐标和局部坐标
-        int chunkX = x / fsw.ChunkEdge;
-        int chunkY = y / fsw.ChunkEdge;
-        int localX = x % fsw.ChunkEdge;
-        int localY = y % fsw.ChunkEdge;
-
         // 查找对应的chunk entity
         var query = entityManager.CreateEntityQuery(typeof(PixelChunk), typeof(PixelBuffer));
         var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
@@ -118,49 +117,20 @@ public class PixelWriter : MonoBehaviour
         foreach (var entity in entities)
         {
             var chunk = entityManager.GetComponentData<PixelChunk>(entity);
-            
-            // 找到目标chunk
-            if (chunk.pos.x == chunkX && chunk.pos.y == chunkY)
+            if (idxMap.TryGetValue(chunk.pos, out var idxs))
             {
                 var buffer = entityManager.GetBuffer<PixelBuffer>(entity);
-                
-                // 计算chunk内索引（包含border）
-                int chunkIdx = fsw.GetChunkIdx(localX + fsw.ChunkBorder, localY + fsw.ChunkBorder);
-                
-                // 写入像素
-                buffer[chunkIdx] = new PixelBuffer { type = type };
-                
+
+                foreach (var idx in idxs)
+                {
+                    buffer[idx] = new PixelBuffer { type = type };
+                }
+
                 // 标记chunk为dirty以触发模拟
                 chunk.isDirty = true;
                 entityManager.SetComponentData(entity, chunk);
-                
-                break;
             }
         }
-
-        entities.Dispose();
-    }
-
-    /// <summary>
-    /// 在指定矩形区域填充像素
-    /// </summary>
-    public void FillRect(int startX, int startY, int width, int height, PixelType type)
-    {
-        for (int y = startY; y < startY + height; y++)
-        {
-            for (int x = startX; x < startX + width; x++)
-            {
-                WritePixelAt(x, y, type);
-            }
-        }
-    }
-
-    /// <summary>
-    /// 清空整个世界
-    /// </summary>
-    public void ClearWorld()
-    {
-        FillRect(0, 0, fsw.WorldWidth, fsw.WorldHeight, PixelType.Empty);
     }
 
     private void OnGUI()

@@ -10,7 +10,7 @@ namespace Pixel
         {
             type = PixelType.Wall;
             interactionMask = PixelType.Empty;
-            handler = BurstCompiler.CompileFunctionPointer<SimulationHandler>(PixelSimulation.WallSimulation);
+            handler = BurstCompiler.CompileFunctionPointer<SimulationHandler>(PixelSimulation.EmptySimulation);
         }
     }
 }
