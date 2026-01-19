@@ -6,7 +6,7 @@ namespace Pixel
     [CreateAssetMenu(fileName = "PixelSet", menuName = "SO/PixelSet")]
     public class PixelSet : ScriptableObject
     {
-        public PixelSO[] pixels;
+        public PixelSO[] pixels;                
     }
 
     public abstract class PixelSO : ScriptableObject

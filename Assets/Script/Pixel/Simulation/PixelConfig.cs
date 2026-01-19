@@ -11,20 +11,13 @@ namespace Pixel
         public static PixelConfig Empty => new();
         public PixelType type;
         public PixelType interactionMask;
-        private FunctionPointer<SimulationHandler> handler;
+        public FunctionPointer<SimulationHandler> handler;
 
         public PixelConfig(PixelType type, PixelType interactionMask, FunctionPointer<SimulationHandler> handler)
         {
             this.type = type;
             this.interactionMask = interactionMask;
             this.handler = handler;
-        }        
-
-        public bool TryExecute(int x, int y, ref DynamicBuffer<PixelBuffer> buffer, ref PixelChunk chunk){
-            if (!handler.IsCreated)
-                return false;
-            handler.Invoke(x, y, ref buffer, ref chunk);
-            return true;                
         }
     }
 
@@ -32,6 +25,7 @@ namespace Pixel
     {
         private readonly NativeHashMap<int, PixelConfig> configs;
         public bool isCreated;
+        
         public PixelConfigMap(int length)
         {
             configs = new(length, Allocator.Persistent);

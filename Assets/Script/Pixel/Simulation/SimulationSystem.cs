@@ -8,16 +8,26 @@ namespace Pixel
     {
         public int edge;
         public int border;
+        public int RealEdge => edge + border*2;
     }
-    [BurstCompile]
-    public partial struct SimulationSystem : ISystem
+
+    [BurstCompile]    
+    public partial struct SimulationSystem : ISystem,ISystemStartStop
     {
         private PixelConfigMap pixelConfigMap;
         private ChunkConfig chunkConfig;
+        private bool isInit;
+
         public void OnCreate(ref SystemState state)
         {
+            isInit = false;            
+        }
+
+        public void OnStartRunning(ref SystemState state)
+        {
+            if (isInit) return;
             var fsw = FallingSandWorld.Instance;
-            pixelConfigMap = new();
+            pixelConfigMap = new(fsw.PixelSet.pixels.Length);
             foreach (var e in fsw.PixelSet.pixels)
             {
                 PixelConfig config = new(e.type, e.interactionMask, e.handler);
@@ -26,8 +36,14 @@ namespace Pixel
             chunkConfig = new()
             {
                 edge = fsw.ChunkEdge,
-                border = fsw.ChunkBorderSize
+                border = fsw.ChunkBorder
             };
+
+            isInit = true;
+        }
+
+        public void OnStopRunning(ref SystemState state)
+        {            
         }
 
         [BurstCompile]
@@ -40,22 +56,38 @@ namespace Pixel
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            var job = new UpdateChunkJob()
+            {
+                pixelConfigMap = pixelConfigMap,
+                chunkConfig = chunkConfig
+            };
+            job.ScheduleParallel();
         }
 
         [BurstCompile]
         private partial struct UpdateChunkJob : IJobEntity
         {
-            [ReadOnly] PixelConfigMap configMap;
+            [ReadOnly] public PixelConfigMap pixelConfigMap;
+            [ReadOnly] public ChunkConfig chunkConfig;
             [BurstCompile]
             public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
             {
-                int chunkEdge = chunk.edgeSize;
-                int chunkBorder = chunk.borderWidth;
-                for (int y = chunkBorder; y < chunkEdge + chunkBorder; y++)
+                if (!chunk.isDirty) return;                
+                int chunkEdge = chunkConfig.edge;
+                int chunkBorder = chunkConfig.border;
+                SimulationContext context = new()
                 {
-                    for (int x = chunkBorder; x < chunkEdge + chunkBorder; x++)
+                    chunkConfig = chunkConfig,
+                    buffer = buffer
+                };
+                for (int y = chunkBorder; y < chunkConfig.RealEdge; y++)
+                {
+                    for (int x = chunkBorder; x < chunkConfig.RealEdge; x++)
                     {
-
+                        var idx = context.GetIndex(x, y);
+                        var config = pixelConfigMap.GetConfig(buffer[idx].type);
+                        context.currentPixelConfig = config;
+                        config.handler.Invoke(x, y, ref context);
                     }
                 }
             }

@@ -8,6 +8,8 @@ namespace Pixel
     {
         void OnEnable()
         {
+            type = PixelType.Sand;
+            interactionMask = PixelType.Empty & PixelType.Water;
             handler = BurstCompiler.CompileFunctionPointer<SimulationHandler>(PixelSimulation.SandSimulation);
         }
     }

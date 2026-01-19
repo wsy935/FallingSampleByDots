@@ -3,6 +3,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using Pixel;
+using System.Collections.Generic;
+using System.Linq;
+
 public class FallingSandWorld : MonoBehaviour
 {
     [Header("世界设置")]
@@ -11,12 +14,15 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private int chunkEdge = 8;
     [SerializeField] private int borderSize = 1;
     [SerializeField] private PixelSet pixelSet;
-
+    private Dictionary<PixelType, PixelSO> pixelMap;
     public static FallingSandWorld Instance { get; private set; }
-    
+
+    public int WorldWidth => worldWidth;
+    public int WorldHeight => worldHeight;
     public int ChunkEdge => chunkEdge;
-    public int ChunkBorderSize => borderSize;
+    public int ChunkBorder => borderSize;    
     public PixelSet PixelSet => pixelSet;
+    public Dictionary<PixelType, PixelSO> PixelMap => pixelMap;
 
     void Awake()
     {
@@ -32,6 +38,7 @@ public class FallingSandWorld : MonoBehaviour
 
     void Start()
     {
+        pixelMap = pixelSet.pixels.ToDictionary(e => e.type);
         CreateChunk();
     }
 
@@ -50,12 +57,27 @@ public class FallingSandWorld : MonoBehaviour
                     isDirty = false
                 });
                 var buffer = em.AddBuffer<PixelBuffer>(entity);
-                buffer.Capacity = (int)Math.Sqrt(chunkEdge + borderSize);
-                for (int k = 0; k < buffer.Length; k++)
+                int totalSize = (int)Math.Pow(chunkEdge + ChunkBorder * 2, 2);
+                buffer.Capacity = totalSize;
+                for (int k = 0; k < totalSize; k++)
                 {
                     buffer.Add(new PixelBuffer() { type = PixelType.Empty });
                 }
             }
         }
+    }
+    
+    public int GetWorldIdx(in PixelChunk pixelChunk, int x, int y)
+    {
+        var pos = pixelChunk.pos;
+        //先从局部坐标转化到世界坐标再转换
+        int worldX = pos.x * chunkEdge + x;
+        int worldY = pos.y * chunkEdge + y;
+        return worldY * worldWidth + worldX;
+    }
+    
+    public int GetChunkIdx(int x, int y)
+    {                
+        return y * chunkEdge + x;
     }
 }

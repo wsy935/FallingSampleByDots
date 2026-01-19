@@ -14,16 +14,14 @@ namespace Pixel
         Wall = 1 << 3
     }
 
-    public partial struct PixelChunk : IComponentData
+    public struct PixelChunk : IComponentData
     {
         public int2 pos;   
-        public int borderWidth;
-        public int edgeSize;
         [MarshalAs(UnmanagedType.U1)]
         public bool isDirty;        
     }
 
-    public partial struct PixelBuffer : IBufferElementData
+    public struct PixelBuffer : IBufferElementData
     {
         public PixelType type;
     }
