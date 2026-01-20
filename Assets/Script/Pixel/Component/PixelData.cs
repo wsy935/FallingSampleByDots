@@ -14,11 +14,14 @@ namespace Pixel
         Wall = 1 << 3
     }
 
+    public struct WhiteChunkTag : IComponentData { }
+    public struct BlackChunkTag : IComponentData { }
+
     public struct PixelChunk : IComponentData
     {
-        public int2 pos;   
+        public int2 pos;
         [MarshalAs(UnmanagedType.U1)]
-        public bool isDirty;        
+        public bool isDirty;
     }
 
     public struct PixelBuffer : IBufferElementData

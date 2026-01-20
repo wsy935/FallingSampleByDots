@@ -52,8 +52,8 @@ public class FallingSandRender : MonoBehaviour
             {
                 for (int j = 0; j < fsw.ChunkEdge; j++)
                 {
-                    int worldIdx = fsw.GetWorldIdx(in chunk, i, j);
-                    int chunkIdx = fsw.GetChunkIdx(i + fsw.ChunkBorder, j + fsw.ChunkBorder);
+                    int worldIdx = fsw.GetWorldIdx(in chunk, j, i);
+                    int chunkIdx = fsw.GetChunkIdx(j+fsw.ChunkBorder, i+fsw.ChunkBorder);
 
                     // 从 buffer 中读取像素类型并转换为颜色
                     var pixelType = buffer[chunkIdx].type;

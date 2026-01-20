@@ -6,11 +6,19 @@ using UnityEngine;
 
 namespace Pixel
 {
+    [BurstCompile]
     public struct ChunkConfig
     {
         public int edge;
         public int border;
+        
         public int RealEdge => edge + border * 2;
+
+        [BurstCompile]
+        public int CoordsToIdx(int x, int y)
+        {
+            return y * RealEdge + x;
+        }
     }
 
     public struct PixelConfig
@@ -27,7 +35,8 @@ namespace Pixel
             this.handler = handler;
         }
     }
-
+    
+    [BurstCompile]
     public struct PixelConfigMap : IDisposable
     {
         private readonly NativeHashMap<int, PixelConfig> configs;
@@ -51,18 +60,18 @@ namespace Pixel
                 configs.Add(key, config);
             }
         }
-
+        
+        [BurstCompile]            
         public PixelConfig GetConfig(PixelType type)
         {
             if (configs.TryGetValue((int)type, out var config))
                 return config;
             else
-            {
-                Debug.LogError("no compatible type in configMap getConig");
+            {                
                 return PixelConfig.Empty;
             }
         }
-
+        
         public void Dispose()
         {
             if (configs.IsCreated)

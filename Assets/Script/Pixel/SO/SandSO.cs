@@ -3,8 +3,6 @@ using UnityEngine;
 
 namespace Pixel
 {
-    using Random = Unity.Mathematics.Random;
-
     [CreateAssetMenu(fileName = "Sand", menuName = "SO/Pixel/Sand")]
     public class SandPixelSO : PixelSO
     {
@@ -12,6 +10,10 @@ namespace Pixel
         {
             type = PixelType.Sand;
             interactionMask = PixelType.Empty | PixelType.Water;
+        }
+
+        public override void ComplieHandler()
+        {
             handler = BurstCompiler.CompileFunctionPointer<SimulationHandler>(PixelSimulation.SandSimulation);
         }
     }

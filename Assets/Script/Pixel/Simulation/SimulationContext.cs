@@ -16,7 +16,7 @@ namespace Pixel
         public Random random;
 
         [BurstCompile]
-        public int GetIndex(int x, int y) => x + y * chunkConfig.RealEdge;
+        public int GetIndex(int x, int y) => chunkConfig.CoordsToIdx(x,y);
 
         [BurstCompile]
         public PixelBuffer GetPixel(int x, int y)
@@ -56,8 +56,8 @@ namespace Pixel
         [BurstCompile]
         public bool IsInBounds(int x, int y)
         {
-            return x >= chunkConfig.border && x < chunkConfig.edge + chunkConfig.border &&
-                   y >= chunkConfig.border && y < chunkConfig.edge + chunkConfig.border;
+            return x >= 0 && x < chunkConfig.RealEdge &&
+                   y >= 0 && y < chunkConfig.RealEdge;
         }
 
         [BurstCompile]

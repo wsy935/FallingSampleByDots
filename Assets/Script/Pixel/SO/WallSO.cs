@@ -10,6 +10,10 @@ namespace Pixel
         {
             type = PixelType.Wall;
             interactionMask = PixelType.Empty;
+        }
+
+        public override void ComplieHandler()
+        {
             handler = BurstCompiler.CompileFunctionPointer<SimulationHandler>(PixelSimulation.EmptySimulation);
         }
     }
