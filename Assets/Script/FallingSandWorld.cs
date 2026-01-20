@@ -11,8 +11,6 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
     [SerializeField] private int chunkEdge = 8;
-    [SerializeField] private int chunkBorder = 1;
-    private int chunkRealEdge;
     [SerializeField] private PixelSet pixelSet;
     private Dictionary<PixelType, PixelSO> pixelMap;
     public static FallingSandWorld Instance { get; private set; }
@@ -20,8 +18,7 @@ public class FallingSandWorld : MonoBehaviour
     public int WorldWidth => worldWidth;
     public int WorldHeight => worldHeight;
     public int ChunkEdge => chunkEdge;
-    public int ChunkBorder => chunkBorder;
-    
+
     public PixelSet PixelSet => pixelSet;
     public Dictionary<PixelType, PixelSO> PixelMap => pixelMap;
 
@@ -46,7 +43,6 @@ public class FallingSandWorld : MonoBehaviour
         }
 
         CreateChunk();
-        chunkRealEdge = chunkBorder * 2 + chunkEdge;
     }
 
     private void CreateChunk()
@@ -74,7 +70,7 @@ public class FallingSandWorld : MonoBehaviour
                 }
 
                 var buffer = em.AddBuffer<PixelBuffer>(entity);
-                int totalSize = (chunkBorder*2 +chunkEdge) * (chunkBorder*2 +chunkEdge);
+                int totalSize = chunkEdge * chunkEdge;
                 buffer.Capacity = totalSize;
                 for (int k = 0; k < totalSize; k++)
                 {
@@ -95,6 +91,6 @@ public class FallingSandWorld : MonoBehaviour
 
     public int GetChunkIdx(int x, int y)
     {
-        return y * chunkRealEdge + x;
+        return y * chunkEdge + x;
     }
 }

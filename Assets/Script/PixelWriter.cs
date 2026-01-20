@@ -97,8 +97,8 @@ public class PixelWriter : MonoBehaviour
                 // 计算chunk坐标和局部坐标
                 int chunkX = x / fsw.ChunkEdge;
                 int chunkY = y / fsw.ChunkEdge;
-                int localX = x % fsw.ChunkEdge + fsw.ChunkBorder;
-                int localY = y % fsw.ChunkEdge + fsw.ChunkBorder;
+                int localX = x % fsw.ChunkEdge;
+                int localY = y % fsw.ChunkEdge;
                 int2 chunkPos = new(chunkX, chunkY);
                 if (idxMap.TryGetValue(chunkPos, out var idxs))
                 {

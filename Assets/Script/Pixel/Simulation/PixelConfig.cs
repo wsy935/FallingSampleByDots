@@ -2,6 +2,7 @@ using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Pixel
@@ -10,14 +11,18 @@ namespace Pixel
     public struct ChunkConfig
     {
         public int edge;
-        public int border;
-        
-        public int RealEdge => edge + border * 2;
+        public int2 chunkCount; // Chunk网格的行列数
 
         [BurstCompile]
         public int CoordsToIdx(int x, int y)
         {
-            return y * RealEdge + x;
+            return y * edge + x;
+        }
+
+        [BurstCompile]
+        public int ChunkPosToIdx(int2 chunkPos)
+        {
+            return chunkPos.y * chunkCount.x + chunkPos.x;
         }
     }
 
@@ -35,7 +40,7 @@ namespace Pixel
             this.handler = handler;
         }
     }
-    
+
     [BurstCompile]
     public struct PixelConfigMap : IDisposable
     {
@@ -60,18 +65,18 @@ namespace Pixel
                 configs.Add(key, config);
             }
         }
-        
-        [BurstCompile]            
+
+        [BurstCompile]
         public PixelConfig GetConfig(PixelType type)
         {
             if (configs.TryGetValue((int)type, out var config))
                 return config;
             else
-            {                
+            {
                 return PixelConfig.Empty;
             }
         }
-        
+
         public void Dispose()
         {
             if (configs.IsCreated)
