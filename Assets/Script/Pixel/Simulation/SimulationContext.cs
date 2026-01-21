@@ -2,7 +2,9 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
+using Random = Unity.Mathematics.Random;
 namespace Pixel
 {
     /// <summary>
@@ -12,123 +14,100 @@ namespace Pixel
     public struct SimulationContext
     {
         public DynamicBuffer<PixelBuffer> buffer;
-        public ChunkConfig chunkConfig;
+        public WorldConfig worldConfig;
         public PixelConfig currentPixelConfig;
         public Random random;
 
-        // 用于跨Chunk访问
         public int2 chunkPos;
         public NativeArray<Entity> chunkEntities;
+        public NativeArray<uint> bitMap;
         public BufferLookup<PixelBuffer> bufferLookup;
-        public ComponentLookup<PixelChunk> chunkLookup; // 用于标记邻居Chunk为dirty
+        public ComponentLookup<PixelChunk> chunkLookup;
 
         [BurstCompile]
-        public int GetIndex(int x, int y) => chunkConfig.CoordsToIdx(x, y);
+        public int GetIndex(int x, int y) => worldConfig.CoordsToChunkIdx(x, y);
 
+        /// <summary>
+        /// 如果当前位已被设置了返回true
+        /// </summary>        
+        [BurstCompile]
+        public bool CheckBit(int x, int y, int2 chunkPos)
+        {
+            int worldIdx = worldConfig.CoordsToWorldIdx(x, y, chunkPos);
+            const int bitsPerUint = sizeof(uint) * 8;
+            int bitIdx = worldIdx / bitsPerUint;
+            int bitPos = worldIdx % bitsPerUint;
+            return (bitMap[bitIdx] & (1u << bitPos)) != 0;
+        }
+        [BurstCompile]
+        public void SetBit(int x, int y, int2 chunkPos)
+        {
+            int worldIdx = worldConfig.CoordsToWorldIdx(x, y, chunkPos);
+            const int bitsPerUint = sizeof(uint) * 8;
+            int bitIdx = worldIdx / bitsPerUint;
+            int bitPos = worldIdx % bitsPerUint;
+            bitMap[bitIdx] = bitMap[bitIdx] | (1u << bitPos);
+        }
+
+        /// <summary>
+        /// 通过像素坐标获取像素数据，如果像素不在世界中，返回Disable
+        /// </summary>                                           
         [BurstCompile]
         public PixelBuffer GetPixel(int x, int y)
         {
             // 如果在本Chunk范围内，直接返回
-            if (x >= 0 && x < chunkConfig.edge && y >= 0 && y < chunkConfig.edge)
+            if (IsInBounds(x, y))
                 return buffer[GetIndex(x, y)];
 
-            // 计算邻居Chunk位置和相对坐标
-            int2 neighborChunkPos = chunkPos;
-            int localX = x, localY = y;
+            // 计算邻居Chunk位置和相对坐标                        
+            int2 neighborChunkPos = GetChunkPos(x, y);
+            if (!IsChunkInWorld(neighborChunkPos)) return new PixelBuffer { type = PixelType.Disable };
 
-            if (x < 0)
-            {
-                neighborChunkPos.x--;
-                localX = chunkConfig.edge + x;
-            }
-            else if (x >= chunkConfig.edge)
-            {
-                neighborChunkPos.x++;
-                localX = x - chunkConfig.edge;
-            }
+            int2 localPos = GetNeighbourLocalPos(x, y);
 
-            if (y < 0)
-            {
-                neighborChunkPos.y--;
-                localY = chunkConfig.edge + y;
-            }
-            else if (y >= chunkConfig.edge)
-            {
-                neighborChunkPos.y++;
-                localY = y - chunkConfig.edge;
-            }
-
-            // 边界检查
-            if (neighborChunkPos.x < 0 || neighborChunkPos.x >= chunkConfig.chunkCount.x ||
-                neighborChunkPos.y < 0 || neighborChunkPos.y >= chunkConfig.chunkCount.y)
-                return new PixelBuffer { type = PixelType.Empty };
-
-            // 使用Array索引直接访问
-            int entityIdx = chunkConfig.ChunkPosToIdx(neighborChunkPos);
+            int entityIdx = worldConfig.ChunkPosToIdx(neighborChunkPos);
             var entity = chunkEntities[entityIdx];
 
             if (bufferLookup.TryGetBuffer(entity, out var neighborBuffer))
-                return neighborBuffer[localY * chunkConfig.edge + localX];
+                return neighborBuffer[GetIndex(localPos.x, localPos.y)];
 
-            return new PixelBuffer { type = PixelType.Empty };
+            return new PixelBuffer { type = PixelType.Disable };
         }
 
         [BurstCompile]
-        public void SetPixel(int x, int y, PixelBuffer pixel)
+        public void SetPixel(int x, int y, PixelBuffer pixel, bool isSetBit = false)
         {
+            if (pixel.type == PixelType.Disable) return;
+
             // 如果在本Chunk范围内，直接写入
-            if (x >= 0 && x < chunkConfig.edge && y >= 0 && y < chunkConfig.edge)
+            if (IsInBounds(x, y))
             {
                 buffer[GetIndex(x, y)] = pixel;
+                if (isSetBit)
+                    SetBit(x, y, chunkPos);
                 return;
             }
 
             // 超出范围则写入邻居Chunk
-            int2 neighborChunkPos = chunkPos;
-            int localX = x, localY = y;
+            int2 neighborChunkPos = GetChunkPos(x, y);
+            if (!IsChunkInWorld(neighborChunkPos)) return;
 
-            if (x < 0)
-            {
-                neighborChunkPos.x--;
-                localX = chunkConfig.edge + x;
-            }
-            else if (x >= chunkConfig.edge)
-            {
-                neighborChunkPos.x++;
-                localX = x - chunkConfig.edge;
-            }
+            int2 localPos = GetNeighbourLocalPos(x, y);
 
-            if (y < 0)
-            {
-                neighborChunkPos.y--;
-                localY = chunkConfig.edge + y;
-            }
-            else if (y >= chunkConfig.edge)
-            {
-                neighborChunkPos.y++;
-                localY = y - chunkConfig.edge;
-            }
-
-            // 边界检查
-            if (neighborChunkPos.x < 0 || neighborChunkPos.x >= chunkConfig.chunkCount.x ||
-                neighborChunkPos.y < 0 || neighborChunkPos.y >= chunkConfig.chunkCount.y)
-                return;
-
-            // 使用Array索引直接访问
-            int entityIdx = chunkConfig.ChunkPosToIdx(neighborChunkPos);
+            int entityIdx = worldConfig.ChunkPosToIdx(neighborChunkPos);
             var entity = chunkEntities[entityIdx];
 
             // 写入邻居Chunk的Buffer
             if (bufferLookup.TryGetBuffer(entity, out var neighborBuffer))
             {
-                neighborBuffer[localY * chunkConfig.edge + localX] = pixel;
-
-                // 标记邻居Chunk为dirty，确保下一帧会继续模拟
+                neighborBuffer[GetIndex(localPos.x, localPos.y)] = pixel;
                 if (chunkLookup.HasComponent(entity))
                 {
                     var neighborChunk = chunkLookup[entity];
                     neighborChunk.isDirty = true;
                     chunkLookup[entity] = neighborChunk;
+                    if (isSetBit)
+                        SetBit(localPos.x, localPos.y, neighborChunkPos);
                 }
             }
         }
@@ -144,25 +123,11 @@ namespace Pixel
 
         [BurstCompile]
         public void Swap(int x1, int y1, int x2, int y2)
-        {
-            // 如果两个位置都在本Chunk内，直接交换
-            bool inBounds1 = x1 >= 0 && x1 < chunkConfig.edge && y1 >= 0 && y1 < chunkConfig.edge;
-            bool inBounds2 = x2 >= 0 && x2 < chunkConfig.edge && y2 >= 0 && y2 < chunkConfig.edge;
-
-            if (inBounds1 && inBounds2)
-            {
-                int idx1 = GetIndex(x1, y1);
-                int idx2 = GetIndex(x2, y2);
-                (buffer[idx1], buffer[idx2]) = (buffer[idx2], buffer[idx1]);
-            }
-            else
-            {
-                // 跨Chunk交换：先读取两个像素，然后分别写入
-                var pixel1 = GetPixel(x1, y1);
-                var pixel2 = GetPixel(x2, y2);
-                SetPixel(x1, y1, pixel2);
-                SetPixel(x2, y2, pixel1);
-            }
+        {            
+            var pixel1 = GetPixel(x1, y1);
+            var pixel2 = GetPixel(x2, y2);
+            SetPixel(x1, y1, pixel2, true);
+            SetPixel(x2, y2, pixel1, true);
         }
 
         /// <summary>
@@ -171,18 +136,70 @@ namespace Pixel
         [BurstCompile]
         public bool IsInBounds(int x, int y)
         {
-            return x >= 0 && x < chunkConfig.edge &&
-                   y >= 0 && y < chunkConfig.edge;
+            return x >= 0 && x < worldConfig.chunkEdge &&
+                   y >= 0 && y < worldConfig.chunkEdge;
         }
 
         /// <summary>
-        /// 检查是否可以与目标像素交互（支持跨Chunk）
+        /// 通过像素坐标计算Chunk坐标，在像素超出当前块范围时为邻居坐标，否则为当前坐标
+        /// </summary>    
+        [BurstCompile]
+        private int2 GetChunkPos(int x, int y)
+        {
+            int2 neighborChunkPos = chunkPos;
+
+            if (x < 0)
+            {
+                neighborChunkPos.x--;
+            }
+            else if (x >= worldConfig.chunkEdge)
+            {
+                neighborChunkPos.x++;
+            }
+
+            if (y < 0)
+            {
+                neighborChunkPos.y--;
+            }
+            else if (y >= worldConfig.chunkEdge)
+            {
+                neighborChunkPos.y++;
+            }
+            return neighborChunkPos;
+        }
+
+        [BurstCompile]
+        private int2 GetNeighbourLocalPos(int x, int y)
+        {
+            int localX = x, localY = y;
+            if (x < 0)
+                localX = worldConfig.chunkEdge + x;
+            else if (x >= worldConfig.chunkEdge)
+                localX = x - worldConfig.chunkEdge;
+
+            if (y < 0)
+                localY = worldConfig.chunkEdge + y;
+            else if (y >= worldConfig.chunkEdge)
+                localY = y - worldConfig.chunkEdge;
+            return new(localX, localY);
+        }
+
+        [BurstCompile]
+        public bool IsChunkInWorld(int2 chunkPos)
+        {
+            return chunkPos.x >= 0 && chunkPos.x < worldConfig.chunkCnt.x &&
+                chunkPos.y >= 0 && chunkPos.y < worldConfig.chunkCnt.y;
+        }
+
+        /// <summary>
+        /// 检查是否可以与目标像素交互
         /// </summary>
         [BurstCompile]
         public bool CanInteract(int x, int y)
         {
-            // 不再检查IsInBounds，允许跨Chunk交互
             var targetPixel = GetPixel(x, y);
+            if (targetPixel.type == PixelType.Disable) return false;
+
             return (currentPixelConfig.interactionMask & targetPixel.type) != 0;
         }
     }

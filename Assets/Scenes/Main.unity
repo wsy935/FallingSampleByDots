@@ -165,8 +165,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FallingSandWorld
   worldWidth: 256
   worldHeight: 144
-  chunkEdge: 16
-  chunkBorder: 1
+  chunkEdge: 32
   pixelSet: {fileID: 11400000, guid: 049286279ce69144c86e08b77f9cd514, type: 2}
 --- !u!1 &855104776
 GameObject:
@@ -302,7 +301,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95d4cf9a537820c41a9e0a94ece3a50a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PixelWriter
-  pixelType: 2
+  pixelType: 4
   brushSize: 3
 --- !u!4 &927146693
 Transform:

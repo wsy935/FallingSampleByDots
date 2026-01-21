@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -8,10 +9,15 @@ namespace Pixel
     [Flags]
     public enum PixelType : int
     {
-        Empty = 1 << 0,
-        Sand = 1 << 1,
-        Water = 1 << 2,
-        Wall = 1 << 3
+        /// <summary>
+        /// 不可用
+        /// </summary>
+        Disable = 1 << 0,
+        Empty = 1 << 1,
+        Sand = 1 << 2,
+        Water = 1 << 3,
+        Wall = 1 << 4,
+        NotReact = Empty | Wall
     }
 
     public struct WhiteChunkTag : IComponentData { }
@@ -24,8 +30,14 @@ namespace Pixel
         public bool isDirty;
     }
 
+    public struct PixelBitBuffer : IBufferElementData
+    {
+        public uint bits;
+    }
+
     public struct PixelBuffer : IBufferElementData
     {
         public PixelType type;
+        public uint lastFrame;
     }
 }

@@ -63,7 +63,7 @@ public class FallingSandRender : MonoBehaviour
                     }
                     else
                     {
-                        pixelBuffer[worldIdx] = Color.black; // 默认颜色
+                        pixelBuffer[worldIdx] = Color.black;
                     }
                 }
             }

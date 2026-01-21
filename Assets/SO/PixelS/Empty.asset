@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ab1f099746629e41b715b9959fb8f90, type: 3}
   m_Name: Empty
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.EmptyPixelSO
-  type: 1
+  type: 2
   color:
     serializedVersion: 2
     rgba: 16777215
-  interactionMask: 1
+  interactionMask: 0

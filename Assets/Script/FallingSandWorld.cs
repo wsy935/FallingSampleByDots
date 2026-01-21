@@ -12,12 +12,14 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private int worldHeight = 256;
     [SerializeField] private int chunkEdge = 8;
     [SerializeField] private PixelSet pixelSet;
+    private int2 chunkCount;
     private Dictionary<PixelType, PixelSO> pixelMap;
     public static FallingSandWorld Instance { get; private set; }
 
     public int WorldWidth => worldWidth;
     public int WorldHeight => worldHeight;
     public int ChunkEdge => chunkEdge;
+    public int2 ChunkCount => chunkCount;
 
     public PixelSet PixelSet => pixelSet;
     public Dictionary<PixelType, PixelSO> PixelMap => pixelMap;
@@ -47,11 +49,11 @@ public class FallingSandWorld : MonoBehaviour
 
     private void CreateChunk()
     {
-        int2 chunkCnt = new(Mathf.CeilToInt(worldWidth / chunkEdge), Mathf.CeilToInt(worldHeight / chunkEdge));
+        chunkCount = new(Mathf.CeilToInt(worldWidth / chunkEdge), Mathf.CeilToInt(worldHeight / chunkEdge));
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        for (int i = 0; i < chunkCnt.y; i++)
+        for (int i = 0; i < chunkCount.y; i++)
         {
-            for (int j = 0; j < chunkCnt.x; j++)
+            for (int j = 0; j < chunkCount.x; j++)
             {
                 var entity = em.CreateEntity();
                 em.AddComponentData(entity, new PixelChunk()

@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2cadf798a6ec4ca4d8da817cbbbbcb1a, type: 3}
   m_Name: Wall
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.WallPixelSO
-  type: 8
+  type: 16
   color:
     serializedVersion: 2
     rgba: 4290559164
-  interactionMask: 1
+  interactionMask: 0
