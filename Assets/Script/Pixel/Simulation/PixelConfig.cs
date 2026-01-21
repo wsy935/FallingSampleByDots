@@ -56,46 +56,36 @@ namespace Pixel
     [BurstCompile]
     public struct PixelConfigMap : IDisposable
     {
-        private readonly NativeHashMap<int, PixelConfig> configs;
-        public bool isCreated;
+        private NativeArray<PixelConfig> configs;
 
-        public PixelConfigMap(int length)
+        public PixelConfigMap(int size)
         {
-            configs = new(length, Allocator.Persistent);
-            isCreated = true;
+            configs = new(size, Allocator.Persistent);
         }
 
+        [BurstCompile]
         public void AddConfig(PixelType type, PixelConfig config)
         {
-            int key = (int)type;
-            if (configs.ContainsKey(key))
-            {
-                Debug.LogError($"there alerady has a key {type} in Addconfig");
-            }
-            else
-            {
-                configs.Add(key, config);
-            }
+            int key = GetKey(type);
+            configs[key] = config;
+        }
+
+        [BurstCompile]
+        private int GetKey(PixelType pixelType)
+        {
+            return math.tzcnt((int)pixelType);
         }
 
         [BurstCompile]
         public PixelConfig GetConfig(PixelType type)
         {
-            if (configs.TryGetValue((int)type, out var config))
-                return config;
-            else
-            {
-                return PixelConfig.Empty;
-            }
+            int key = GetKey(type);
+            return configs[key];
         }
 
         public void Dispose()
         {
-            if (configs.IsCreated)
-            {
-                isCreated = false;
-                configs.Dispose();
-            }
+            configs.Dispose();
         }
     }
 }

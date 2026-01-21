@@ -123,7 +123,7 @@ namespace Pixel
 
         [BurstCompile]
         public void Swap(int x1, int y1, int x2, int y2)
-        {            
+        {
             var pixel1 = GetPixel(x1, y1);
             var pixel2 = GetPixel(x2, y2);
             SetPixel(x1, y1, pixel2, true);

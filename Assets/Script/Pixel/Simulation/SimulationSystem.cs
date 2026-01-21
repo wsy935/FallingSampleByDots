@@ -3,16 +3,18 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities.UniversalDelegates;
+using UnityEngine;
 
+using Random = Unity.Mathematics.Random;
 namespace Pixel
 {
     [BurstCompile]
     public partial struct SimulationSystem : ISystem, ISystemStartStop
     {
         private PixelConfigMap pixelConfigMap;
-        private NativeArray<Entity> chunkEntities; // 使用Array代替HashMap，提升cache性能
+        private NativeArray<Entity> chunkEntities;
         private uint frameIdx;
+
         //处理像素，确保每个像素每帧只会更新一次
         private NativeArray<uint> bitMap;
         private WorldConfig worldConfig;
@@ -64,8 +66,8 @@ namespace Pixel
 
         public void OnDestroy(ref SystemState state)
         {
-            if (pixelConfigMap.isCreated)
-                pixelConfigMap.Dispose();
+            pixelConfigMap.Dispose();
+
             if (chunkEntities.IsCreated)
                 chunkEntities.Dispose();
             if (bitMap.IsCreated)
@@ -78,6 +80,9 @@ namespace Pixel
             for (int i = 0; i < bitMap.Length; i++)
                 bitMap[i] = 0;
 
+            var blackChunkQuery = SystemAPI.QueryBuilder().WithAll<BlackChunkTag, PixelChunk, PixelBuffer>().Build();
+            var whiteChunkQuery = SystemAPI.QueryBuilder().WithAll<WhiteChunkTag, PixelChunk, PixelBuffer>().Build();
+
             var updateChunkJob = new UpdateChunkJob()
             {
                 pixelConfigMap = pixelConfigMap,
@@ -88,11 +93,11 @@ namespace Pixel
                 bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false),
                 chunkLookup = SystemAPI.GetComponentLookup<PixelChunk>(false)
             };
-            var blackChunkQuery = SystemAPI.QueryBuilder().WithAll<BlackChunkTag, PixelChunk, PixelBuffer>().Build();
             state.Dependency = updateChunkJob.ScheduleParallel(blackChunkQuery, state.Dependency);
 
-            updateChunkJob.bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>();
-            var whiteChunkQuery = SystemAPI.QueryBuilder().WithAll<WhiteChunkTag, PixelChunk, PixelBuffer>().Build();
+            state.Dependency.Complete();
+
+            updateChunkJob.bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false);
             state.Dependency = updateChunkJob.ScheduleParallel(whiteChunkQuery, state.Dependency);
 
             frameIdx = frameIdx == uint.MaxValue ? 0 : frameIdx + 1;
@@ -100,7 +105,7 @@ namespace Pixel
 
         /// <summary>
         /// 更新Chunk：通过黑白交替调度保证并发安全
-        /// </summary>
+        /// </summary>        
         [BurstCompile]
         private partial struct UpdateChunkJob : IJobEntity
         {
@@ -141,6 +146,7 @@ namespace Pixel
                             var idx = context.GetIndex(x, y);
                             if ((buffer[idx].type & PixelType.NotReact) != 0 || context.CheckBit(x, y, chunk.pos))
                                 continue;
+                            if (buffer[idx].lastFrame == frameIdx) continue;
                             var config = pixelConfigMap.GetConfig(buffer[idx].type);
                             context.currentPixelConfig = config;
                             config.handler.Invoke(x, y, ref context);
@@ -156,6 +162,7 @@ namespace Pixel
                             var idx = context.GetIndex(x, y);
                             if ((buffer[idx].type & PixelType.NotReact) != 0 || context.CheckBit(x, y, chunk.pos))
                                 continue;
+                            if (buffer[idx].lastFrame == frameIdx) continue;
                             var config = pixelConfigMap.GetConfig(buffer[idx].type);
                             context.currentPixelConfig = config;
                             config.handler.Invoke(x, y, ref context);
