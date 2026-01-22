@@ -73,7 +73,8 @@ namespace Pixel
         [BurstCompile]
         private int GetKey(PixelType pixelType)
         {
-            return math.tzcnt((int)pixelType);
+            // -1 以偏移掉Disable
+            return math.tzcnt((int)pixelType)-1;
         }
 
         [BurstCompile]

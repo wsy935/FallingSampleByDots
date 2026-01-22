@@ -17,37 +17,15 @@ namespace Pixel
         public WorldConfig worldConfig;
         public PixelConfig currentPixelConfig;
         public Random random;
+        public uint frameIdx;
 
         public int2 chunkPos;
-        public NativeArray<Entity> chunkEntities;
-        public NativeArray<uint> bitMap;
+        public NativeArray<Entity> chunkEntities;        
         public BufferLookup<PixelBuffer> bufferLookup;
         public ComponentLookup<PixelChunk> chunkLookup;
 
         [BurstCompile]
         public int GetIndex(int x, int y) => worldConfig.CoordsToChunkIdx(x, y);
-
-        /// <summary>
-        /// 如果当前位已被设置了返回true
-        /// </summary>        
-        [BurstCompile]
-        public bool CheckBit(int x, int y, int2 chunkPos)
-        {
-            int worldIdx = worldConfig.CoordsToWorldIdx(x, y, chunkPos);
-            const int bitsPerUint = sizeof(uint) * 8;
-            int bitIdx = worldIdx / bitsPerUint;
-            int bitPos = worldIdx % bitsPerUint;
-            return (bitMap[bitIdx] & (1u << bitPos)) != 0;
-        }
-        [BurstCompile]
-        public void SetBit(int x, int y, int2 chunkPos)
-        {
-            int worldIdx = worldConfig.CoordsToWorldIdx(x, y, chunkPos);
-            const int bitsPerUint = sizeof(uint) * 8;
-            int bitIdx = worldIdx / bitsPerUint;
-            int bitPos = worldIdx % bitsPerUint;
-            bitMap[bitIdx] = bitMap[bitIdx] | (1u << bitPos);
-        }
 
         /// <summary>
         /// 通过像素坐标获取像素数据，如果像素不在世界中，返回Disable
@@ -82,9 +60,9 @@ namespace Pixel
             // 如果在本Chunk范围内，直接写入
             if (IsInBounds(x, y))
             {
-                buffer[GetIndex(x, y)] = pixel;
-                if (isSetBit)
-                    SetBit(x, y, chunkPos);
+                int idx = GetIndex(x, y);
+                buffer[idx] = pixel;
+                SetFrameIdx(idx, ref buffer);
                 return;
             }
 
@@ -100,16 +78,24 @@ namespace Pixel
             // 写入邻居Chunk的Buffer
             if (bufferLookup.TryGetBuffer(entity, out var neighborBuffer))
             {
-                neighborBuffer[GetIndex(localPos.x, localPos.y)] = pixel;
+                int neighborIdx = GetIndex(localPos.x, localPos.y);
+                neighborBuffer[neighborIdx] = pixel;
                 if (chunkLookup.HasComponent(entity))
                 {
                     var neighborChunk = chunkLookup[entity];
                     neighborChunk.isDirty = true;
                     chunkLookup[entity] = neighborChunk;
-                    if (isSetBit)
-                        SetBit(localPos.x, localPos.y, neighborChunkPos);
+                    SetFrameIdx(neighborIdx,ref neighborBuffer);
                 }
             }
+        }
+
+        [BurstCompile]
+        private void SetFrameIdx(int idx,ref DynamicBuffer<PixelBuffer> buffer)
+        {
+            var temp = buffer[idx];
+            temp.lastFrame = frameIdx;
+            buffer[idx] = temp;
         }
 
         [BurstCompile]

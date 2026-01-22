@@ -15,10 +15,7 @@ namespace Pixel
         private NativeArray<Entity> chunkEntities;
         private uint frameIdx;
 
-        //处理像素，确保每个像素每帧只会更新一次
-        private NativeArray<uint> bitMap;
         private WorldConfig worldConfig;
-
         private bool isInit;
 
         public void OnCreate(ref SystemState state)
@@ -41,9 +38,6 @@ namespace Pixel
             };
             chunkEntities = new NativeArray<Entity>(fsw.ChunkCount.x * fsw.ChunkCount.y, Allocator.Persistent);
 
-            int pixelCnt = fsw.WorldHeight * fsw.WorldWidth;
-            const int bitsPerUint = sizeof(uint) * 8;
-            bitMap = new((int)math.ceil((float)pixelCnt / bitsPerUint), Allocator.Persistent);
             // 按照chunk位置填充数组
             foreach (var (chunk, entity) in SystemAPI.Query<RefRO<PixelChunk>>().WithEntityAccess())
             {
@@ -70,16 +64,11 @@ namespace Pixel
 
             if (chunkEntities.IsCreated)
                 chunkEntities.Dispose();
-            if (bitMap.IsCreated)
-                bitMap.Dispose();
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            for (int i = 0; i < bitMap.Length; i++)
-                bitMap[i] = 0;
-
             var blackChunkQuery = SystemAPI.QueryBuilder().WithAll<BlackChunkTag, PixelChunk, PixelBuffer>().Build();
             var whiteChunkQuery = SystemAPI.QueryBuilder().WithAll<WhiteChunkTag, PixelChunk, PixelBuffer>().Build();
 
@@ -88,7 +77,6 @@ namespace Pixel
                 pixelConfigMap = pixelConfigMap,
                 worldConfig = worldConfig,
                 chunkEntities = chunkEntities,
-                bitMap = bitMap,
                 frameIdx = frameIdx,
                 bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false),
                 chunkLookup = SystemAPI.GetComponentLookup<PixelChunk>(false)
@@ -121,15 +109,14 @@ namespace Pixel
             [BurstCompile]
             public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
             {
-                // if (!chunk.isDirty) return;
-
+                if (!chunk.isDirty) return;
                 SimulationContext context = new()
                 {
                     buffer = buffer,
                     worldConfig = worldConfig,
                     random = new Random(math.hash(chunk.pos) + frameIdx),
                     chunkPos = chunk.pos,
-                    bitMap = bitMap,
+                    frameIdx = frameIdx,
                     chunkEntities = chunkEntities,
                     chunkLookup = chunkLookup,
                     bufferLookup = bufferLookup,
@@ -143,15 +130,9 @@ namespace Pixel
                     {
                         for (int x = 0; x < worldConfig.chunkEdge; x++)
                         {
-                            var idx = context.GetIndex(x, y);
-                            if ((buffer[idx].type & PixelType.NotReact) != 0 || context.CheckBit(x, y, chunk.pos))
-                                continue;
-                            if (buffer[idx].lastFrame == frameIdx) continue;
-                            var config = pixelConfigMap.GetConfig(buffer[idx].type);
-                            context.currentPixelConfig = config;
-                            config.handler.Invoke(x, y, ref context);
-
-                            if (!hasChange && context.CheckBit(x, y, chunk.pos))
+                            HandlePixel(x, y, ref context);
+                            int idx = context.GetIndex(x, y);
+                            if (!hasChange && buffer[idx].lastFrame == frameIdx)
                                 hasChange = true;
                         }
                     }
@@ -159,20 +140,24 @@ namespace Pixel
                     {
                         for (int x = worldConfig.chunkEdge - 1; x >= 0; x--)
                         {
-                            var idx = context.GetIndex(x, y);
-                            if ((buffer[idx].type & PixelType.NotReact) != 0 || context.CheckBit(x, y, chunk.pos))
-                                continue;
-                            if (buffer[idx].lastFrame == frameIdx) continue;
-                            var config = pixelConfigMap.GetConfig(buffer[idx].type);
-                            context.currentPixelConfig = config;
-                            config.handler.Invoke(x, y, ref context);
-
-                            if (!hasChange && context.CheckBit(x, y, chunk.pos))
+                            HandlePixel(x, y, ref context);
+                            int idx = context.GetIndex(x, y);
+                            if (!hasChange && buffer[idx].lastFrame == frameIdx)
                                 hasChange = true;
                         }
                     }
                 }
                 chunk.isDirty = hasChange;
+            }
+            [BurstCompile]
+            private void HandlePixel(int x, int y, ref SimulationContext context)
+            {
+                var idx = context.GetIndex(x, y);
+                if ((context.buffer[idx].type & PixelType.NotReact) != 0 || context.buffer[idx].lastFrame == frameIdx)
+                    return;
+                var config = pixelConfigMap.GetConfig(context.buffer[idx].type);
+                context.currentPixelConfig = config;
+                config.handler.Invoke(x, y, ref context);
             }
         }
     }
