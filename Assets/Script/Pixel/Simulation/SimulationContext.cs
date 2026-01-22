@@ -17,10 +17,9 @@ namespace Pixel
         public WorldConfig worldConfig;
         public PixelConfig currentPixelConfig;
         public Random random;
-        public uint frameIdx;
 
-        public int2 chunkPos;
-        public NativeArray<Entity> chunkEntities;        
+        public PixelChunk chunk;
+        public NativeArray<Entity> chunkEntities;
         public BufferLookup<PixelBuffer> bufferLookup;
         public ComponentLookup<PixelChunk> chunkLookup;
 
@@ -53,7 +52,7 @@ namespace Pixel
         }
 
         [BurstCompile]
-        public void SetPixel(int x, int y, PixelBuffer pixel, bool isSetBit = false)
+        private void SetPixel(int x, int y, PixelBuffer pixel)
         {
             if (pixel.type == PixelType.Disable) return;
 
@@ -62,7 +61,6 @@ namespace Pixel
             {
                 int idx = GetIndex(x, y);
                 buffer[idx] = pixel;
-                SetFrameIdx(idx, ref buffer);
                 return;
             }
 
@@ -85,17 +83,8 @@ namespace Pixel
                     var neighborChunk = chunkLookup[entity];
                     neighborChunk.isDirty = true;
                     chunkLookup[entity] = neighborChunk;
-                    SetFrameIdx(neighborIdx,ref neighborBuffer);
                 }
             }
-        }
-
-        [BurstCompile]
-        private void SetFrameIdx(int idx,ref DynamicBuffer<PixelBuffer> buffer)
-        {
-            var temp = buffer[idx];
-            temp.lastFrame = frameIdx;
-            buffer[idx] = temp;
         }
 
         [BurstCompile]
@@ -110,10 +99,17 @@ namespace Pixel
         [BurstCompile]
         public void Swap(int x1, int y1, int x2, int y2)
         {
+            if (!chunk.isDirty)
+            {
+                int chunkIdx = worldConfig.ChunkPosToIdx(chunk.pos);
+                var chunkEntity = chunkEntities[chunkIdx];
+                chunk.isDirty = true;
+                chunkLookup[chunkEntity] = chunk;
+            }
             var pixel1 = GetPixel(x1, y1);
             var pixel2 = GetPixel(x2, y2);
-            SetPixel(x1, y1, pixel2, true);
-            SetPixel(x2, y2, pixel1, true);
+            SetPixel(x1, y1, pixel2);
+            SetPixel(x2, y2, pixel1);
         }
 
         /// <summary>
@@ -128,11 +124,11 @@ namespace Pixel
 
         /// <summary>
         /// 通过像素坐标计算Chunk坐标，在像素超出当前块范围时为邻居坐标，否则为当前坐标
-        /// </summary>    
+        /// </summary>
         [BurstCompile]
         private int2 GetChunkPos(int x, int y)
         {
-            int2 neighborChunkPos = chunkPos;
+            int2 neighborChunkPos = chunk.pos;
 
             if (x < 0)
             {

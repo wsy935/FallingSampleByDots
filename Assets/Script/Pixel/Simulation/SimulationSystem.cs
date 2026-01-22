@@ -81,11 +81,8 @@ namespace Pixel
                 bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false),
                 chunkLookup = SystemAPI.GetComponentLookup<PixelChunk>(false)
             };
+
             state.Dependency = updateChunkJob.ScheduleParallel(blackChunkQuery, state.Dependency);
-
-            state.Dependency.Complete();
-
-            updateChunkJob.bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false);
             state.Dependency = updateChunkJob.ScheduleParallel(whiteChunkQuery, state.Dependency);
 
             frameIdx = frameIdx == uint.MaxValue ? 0 : frameIdx + 1;
@@ -102,7 +99,6 @@ namespace Pixel
             [ReadOnly] public NativeArray<Entity> chunkEntities;
             [ReadOnly] public uint frameIdx;
 
-            [NativeDisableContainerSafetyRestriction] public NativeArray<uint> bitMap;
             [NativeDisableContainerSafetyRestriction] public BufferLookup<PixelBuffer> bufferLookup;
             [NativeDisableContainerSafetyRestriction] public ComponentLookup<PixelChunk> chunkLookup;
 
@@ -110,19 +106,19 @@ namespace Pixel
             public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
             {
                 if (!chunk.isDirty) return;
+
+                chunk.isDirty = false;
                 SimulationContext context = new()
                 {
                     buffer = buffer,
                     worldConfig = worldConfig,
                     random = new Random(math.hash(chunk.pos) + frameIdx),
-                    chunkPos = chunk.pos,
-                    frameIdx = frameIdx,
+                    chunk = chunk,
                     chunkEntities = chunkEntities,
                     chunkLookup = chunkLookup,
                     bufferLookup = bufferLookup,
                 };
 
-                bool hasChange = false;
                 for (int y = 0; y < worldConfig.chunkEdge; y++)
                 {
                     bool direction = context.random.NextBool();
@@ -131,9 +127,6 @@ namespace Pixel
                         for (int x = 0; x < worldConfig.chunkEdge; x++)
                         {
                             HandlePixel(x, y, ref context);
-                            int idx = context.GetIndex(x, y);
-                            if (!hasChange && buffer[idx].lastFrame == frameIdx)
-                                hasChange = true;
                         }
                     }
                     else
@@ -141,13 +134,9 @@ namespace Pixel
                         for (int x = worldConfig.chunkEdge - 1; x >= 0; x--)
                         {
                             HandlePixel(x, y, ref context);
-                            int idx = context.GetIndex(x, y);
-                            if (!hasChange && buffer[idx].lastFrame == frameIdx)
-                                hasChange = true;
                         }
                     }
                 }
-                chunk.isDirty = hasChange;
             }
             [BurstCompile]
             private void HandlePixel(int x, int y, ref SimulationContext context)
