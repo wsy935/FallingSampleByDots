@@ -7,7 +7,6 @@ using UnityEngine;
 
 namespace Pixel
 {
-
     [BurstCompile]
     public struct WorldConfig
     {
@@ -74,7 +73,7 @@ namespace Pixel
         private int GetKey(PixelType pixelType)
         {
             // -1 以偏移掉Disable
-            return math.tzcnt((int)pixelType)-1;
+            return math.tzcnt((int)pixelType) - 1;
         }
 
         [BurstCompile]

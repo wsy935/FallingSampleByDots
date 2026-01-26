@@ -11,7 +11,6 @@ namespace Pixel
             type = PixelType.Sand;
             interactionMask = PixelType.Empty | PixelType.Water;
         }
-
         public override void ComplieHandler()
         {
             handler = BurstCompiler.CompileFunctionPointer<SimulationHandler>(PixelSimulation.SandSimulation);

@@ -20,6 +20,13 @@ namespace Pixel
         NotReact = Empty | Wall
     }
 
+    public enum MaterialType
+    {
+        Solid = 0,
+        Liquid = 1,
+        Gas = 2
+    }
+
     public struct WhiteChunkTag : IComponentData { }
     public struct BlackChunkTag : IComponentData { }
 
@@ -29,14 +36,9 @@ namespace Pixel
         [MarshalAs(UnmanagedType.U1)]
         public bool isDirty;
     }
-
-    public struct PixelBitBuffer : IBufferElementData
-    {
-        public uint bits;
-    }
-
+    
     public struct PixelBuffer : IBufferElementData
-    {
+    {        
         public PixelType type;
         public uint lastFrame;
     }

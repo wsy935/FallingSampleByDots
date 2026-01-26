@@ -13,6 +13,7 @@ namespace Pixel
     public abstract class PixelSO : ScriptableObject
     {
         public PixelType type;
+        public MaterialType matType;
         public Color32 color;
         public PixelType interactionMask;
         

@@ -17,6 +17,7 @@ namespace Pixel
         public WorldConfig worldConfig;
         public PixelConfig currentPixelConfig;
         public Random random;
+        public uint frameIdx;
 
         public PixelChunk chunk;
         public NativeArray<Entity> chunkEntities;
@@ -28,7 +29,7 @@ namespace Pixel
 
         /// <summary>
         /// 通过像素坐标获取像素数据，如果像素不在世界中，返回Disable
-        /// </summary>                                           
+        /// </summary>
         [BurstCompile]
         public PixelBuffer GetPixel(int x, int y)
         {
@@ -60,7 +61,9 @@ namespace Pixel
             if (IsInBounds(x, y))
             {
                 int idx = GetIndex(x, y);
+                pixel.lastFrame = frameIdx;
                 buffer[idx] = pixel;
+                NotifyNeighbour(chunk.pos, x, y);
                 return;
             }
 
@@ -77,14 +80,42 @@ namespace Pixel
             if (bufferLookup.TryGetBuffer(entity, out var neighborBuffer))
             {
                 int neighborIdx = GetIndex(localPos.x, localPos.y);
+                pixel.lastFrame = frameIdx;
                 neighborBuffer[neighborIdx] = pixel;
-                if (chunkLookup.HasComponent(entity))
-                {
-                    var neighborChunk = chunkLookup[entity];
-                    neighborChunk.isDirty = true;
-                    chunkLookup[entity] = neighborChunk;
-                }
+                
+                var neighborChunk = chunkLookup[entity];
+                neighborChunk.isDirty = true;
+                chunkLookup[entity] = neighborChunk;
             }
+        }
+
+        /// <summary>
+        /// 在像素处于边缘位置时，设置邻居Chunk Dirty为true
+        /// </summary>
+        [BurstCompile]
+        private void NotifyNeighbour(int2 chunkPos, int x, int y)
+        {
+            if (x == 0)
+                NotifyNeighbour(new(chunkPos.x - 1, chunkPos.y));
+            else if (x == worldConfig.chunkEdge - 1)
+                NotifyNeighbour(new(chunkPos.x + 1, chunkPos.y));
+
+            if (y == 0)
+                NotifyNeighbour(new(chunkPos.x, chunkPos.y - 1));
+            else if (y == worldConfig.chunkEdge - 1)
+                NotifyNeighbour(new(chunkPos.x, chunkPos.y + 1));
+        }
+
+        [BurstCompile]
+        private void NotifyNeighbour(int2 chunkPos)
+        {
+            if (!IsChunkInWorld(chunkPos)) return;
+
+            var idx = worldConfig.ChunkPosToIdx(chunkPos);
+            var entity = chunkEntities[idx];
+            var chunk = chunkLookup[entity];
+            chunk.isDirty = true;
+            chunkLookup[entity] = chunk;
         }
 
         [BurstCompile]
@@ -98,14 +129,7 @@ namespace Pixel
 
         [BurstCompile]
         public void Swap(int x1, int y1, int x2, int y2)
-        {
-            if (!chunk.isDirty)
-            {
-                int chunkIdx = worldConfig.ChunkPosToIdx(chunk.pos);
-                var chunkEntity = chunkEntities[chunkIdx];
-                chunk.isDirty = true;
-                chunkLookup[chunkEntity] = chunk;
-            }
+        {            
             var pixel1 = GetPixel(x1, y1);
             var pixel2 = GetPixel(x2, y2);
             SetPixel(x1, y1, pixel2);
