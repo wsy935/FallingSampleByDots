@@ -6,54 +6,25 @@ using Unity.Mathematics;
 using UnityEngine;
 
 namespace Pixel
-{
-    [BurstCompile]
-    public struct WorldConfig
-    {
-        public int width;
-        public int height;
-        public int2 chunkCnt;
-        public int chunkEdge;
-
-
-        [BurstCompile]
-        public int CoordsToChunkIdx(int x, int y)
-        {
-            return y * chunkEdge + x;
-        }
-
-        [BurstCompile]
-        public int CoordsToWorldIdx(int x, int y, int2 chunkPos)
-        {
-            int worldX = chunkPos.x * chunkEdge + x;
-            int worldY = chunkPos.y * chunkEdge + y;
-            return worldY * width + worldX;
-        }
-
-        [BurstCompile]
-        public int ChunkPosToIdx(int2 chunkPos)
-        {
-            return chunkPos.y * chunkCnt.x + chunkPos.x;
-        }
-    }
-
+{    
     public struct PixelConfig
-    {
-        public static PixelConfig Empty => new();
+    {        
         public PixelType type;
         public PixelType interactionMask;
+        public Color32 color;
         public FunctionPointer<SimulationHandler> handler;
 
-        public PixelConfig(PixelType type, PixelType interactionMask, FunctionPointer<SimulationHandler> handler)
+        public PixelConfig(PixelType type, PixelType interactionMask,Color32 color,FunctionPointer<SimulationHandler> handler)
         {
             this.type = type;
+            this.color = color;
             this.interactionMask = interactionMask;
             this.handler = handler;
         }
     }
 
     [BurstCompile]
-    public struct PixelConfigMap : IDisposable
+    public struct PixelConfigMap : IComponentData,IDisposable
     {
         private NativeArray<PixelConfig> configs;
 
@@ -75,7 +46,7 @@ namespace Pixel
             // -1 以偏移掉Disable
             return math.tzcnt((int)pixelType) - 1;
         }
-
+        
         [BurstCompile]
         public PixelConfig GetConfig(PixelType type)
         {

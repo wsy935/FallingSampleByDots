@@ -43,6 +43,8 @@ public class PixelWriter : MonoBehaviour
             WritePixel(worldPos, PixelType.Empty);
         }
 
+        if (keyboard[Key.F].isPressed) FillAll();        
+
         // 数字键切换像素类型        
         if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
         if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
@@ -70,6 +72,23 @@ public class PixelWriter : MonoBehaviour
         int pixelY = Mathf.FloorToInt((worldPos.y + fsw.WorldHeight / (2f * pixelPerUnit)) * pixelPerUnit);
 
         return new Vector2(pixelX, pixelY);
+    }
+
+    private void FillAll()
+    {
+        var query = entityManager.CreateEntityQuery(typeof(PixelChunk), typeof(PixelBuffer));
+        var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);        
+        foreach (var entity in entities)
+        {
+            var buffer = entityManager.GetBuffer<PixelBuffer>(entity);
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                var temp = buffer[i];
+                temp.type = pixelType;
+                buffer[i] = temp;
+            }
+                
+        }
     }
 
     /// <summary>

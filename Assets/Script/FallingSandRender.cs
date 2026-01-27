@@ -9,9 +9,10 @@ public class FallingSandRender : MonoBehaviour
     public static FallingSandRender Instance { get; private set; }
     SpriteRenderer sr;
     Texture2D tex;
-    Color32[] pixelBuffer;
-    public int pixelPerUnit = 100;
 
+    public int pixelPerUnit = 100;
+    public Texture2D Tex => tex;    
+    
     private void Awake()
     {
         if (Instance == null)
@@ -28,48 +29,7 @@ public class FallingSandRender : MonoBehaviour
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
-        };
-        pixelBuffer = new Color32[fsw.WorldHeight * fsw.WorldWidth];
+        };        
         sr.sprite = Sprite.Create(tex, new(0, 0, fsw.WorldWidth, fsw.WorldHeight), new(0.5f, 0.5f), pixelPerUnit);
-    }
-
-    private void Update()
-    {
-        UpdateTexture();
-    }
-
-    private void UpdateTexture()
-    {
-        var fsw = FallingSandWorld.Instance;
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        var query = em.CreateEntityQuery(typeof(PixelBuffer), typeof(PixelChunk));
-        var entitys = query.ToEntityArray(Allocator.Temp);
-        foreach (var entity in entitys)
-        {
-            var chunk = em.GetComponentData<PixelChunk>(entity);
-            var buffer = em.GetBuffer<PixelBuffer>(entity, true);
-            for (int i = 0; i < fsw.ChunkEdge; i++)
-            {
-                for (int j = 0; j < fsw.ChunkEdge; j++)
-                {
-                    int worldIdx = fsw.GetWorldIdx(in chunk, j, i);
-                    int chunkIdx = fsw.GetChunkIdx(j, i);
-
-                    // 从 buffer 中读取像素类型并转换为颜色
-                    var pixelType = buffer[chunkIdx].type;
-                    if (fsw.PixelMap.TryGetValue(pixelType, out var pixelSO))
-                    {
-                        pixelBuffer[worldIdx] = pixelSO.color;
-                    }
-                    else
-                    {
-                        pixelBuffer[worldIdx] = Color.black;
-                    }
-                }
-            }
-        }
-
-        tex.SetPixels32(pixelBuffer);
-        tex.Apply();
-    }
+    }    
 }

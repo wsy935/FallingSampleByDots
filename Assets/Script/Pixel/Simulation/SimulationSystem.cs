@@ -25,33 +25,22 @@ namespace Pixel
             frameIdx = 0;
         }
 
+        [BurstCompile]
         public void OnStartRunning(ref SystemState state)
         {
             if (isInit) return;
 
-            var fsw = FallingSandWorld.Instance;
-            worldConfig = new()
-            {
-                width = fsw.WorldWidth,
-                height = fsw.WorldHeight,
-                chunkEdge = fsw.ChunkEdge,
-                chunkCnt = fsw.ChunkCount,
-            };
-            chunkEntities = new NativeArray<Entity>(fsw.ChunkCount.x * fsw.ChunkCount.y, Allocator.Persistent);
+            worldConfig = SystemAPI.GetSingleton<WorldConfig>();
+            pixelConfigMap = SystemAPI.GetSingleton<PixelConfigMap>();
 
             // 按照chunk位置填充数组
+            chunkEntities = new NativeArray<Entity>(worldConfig.chunkCnt.x*worldConfig.chunkCnt.y, Allocator.Persistent);            
             foreach (var (chunk, entity) in SystemAPI.Query<RefRO<PixelChunk>>().WithEntityAccess())
             {
                 int idx = worldConfig.ChunkPosToIdx(chunk.ValueRO.pos);
                 chunkEntities[idx] = entity;
             }
-
-            pixelConfigMap = new(fsw.PixelSet.pixels.Length);
-            foreach (var e in fsw.PixelSet.pixels)
-            {
-                PixelConfig config = new(e.type, e.interactionMask, e.handler);
-                pixelConfigMap.AddConfig(e.type, config);
-            }
+            
             isInit = true;
         }
 
@@ -82,11 +71,19 @@ namespace Pixel
                 bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false),
                 chunkLookup = SystemAPI.GetComponentLookup<PixelChunk>(false)
             };
+            
+            foreach(var (chunk,buffer,_) in SystemAPI.Query<RefRW<PixelChunk>, DynamicBuffer<PixelBuffer>, BlackChunkTag>())
+            {                
+                updateChunkJob.Execute(ref chunk.ValueRW, buffer);
+            }
 
+            foreach(var (chunk,buffer,_) in SystemAPI.Query<RefRW<PixelChunk>, DynamicBuffer<PixelBuffer>, WhiteChunkTag>())
+            {                
+                updateChunkJob.Execute(ref chunk.ValueRW, buffer);
+            }
             // state.Dependency = updateChunkJob.ScheduleParallel(blackChunkQuery, state.Dependency);
             // state.Dependency = updateChunkJob.ScheduleParallel(whiteChunkQuery, state.Dependency);
-            state.Dependency = updateChunkJob.Schedule(blackChunkQuery, state.Dependency);
-            state.Dependency = updateChunkJob.Schedule(whiteChunkQuery, state.Dependency);
+
             // var blackEntity = blackChunkQuery.ToEntityArray(Allocator.TempJob);
             // var whiteEntity = whiteChunkQuery.ToEntityArray(Allocator.TempJob);
 
@@ -192,7 +189,7 @@ namespace Pixel
             [NativeDisableContainerSafetyRestriction] public ComponentLookup<PixelChunk> chunkLookup;
 
             [BurstCompile]
-            public void Execute(ref PixelChunk chunk, ref DynamicBuffer<PixelBuffer> buffer)
+            public void Execute(ref PixelChunk chunk, DynamicBuffer<PixelBuffer> buffer)
             {
                 // if (!chunk.isDirty) return;
 

@@ -165,7 +165,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FallingSandWorld
   worldWidth: 256
   worldHeight: 256
-  chunkEdge: 32
+  chunkEdge: 128
   pixelSet: {fileID: 11400000, guid: 049286279ce69144c86e08b77f9cd514, type: 2}
 --- !u!1 &855104776
 GameObject:

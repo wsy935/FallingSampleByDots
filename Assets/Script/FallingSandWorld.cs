@@ -21,9 +21,6 @@ public class FallingSandWorld : MonoBehaviour
     public int ChunkEdge => chunkEdge;
     public int2 ChunkCount => chunkCount;
 
-    public PixelSet PixelSet => pixelSet;
-    public Dictionary<PixelType, PixelSO> PixelMap => pixelMap;
-
     void Awake()
     {
         if (Instance == null)
@@ -44,24 +41,59 @@ public class FallingSandWorld : MonoBehaviour
             e.ComplieHandler();
         }
 
+        chunkCount = new(Mathf.CeilToInt(worldWidth / chunkEdge), Mathf.CeilToInt(worldHeight / chunkEdge));
+
         CreateChunk();
+        CreateWorldConfig();
+        CreatePixelConfigMap();
+    }
+
+    //添加PixelConfigMap单例组件
+    private void CreatePixelConfigMap()
+    {
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        var pixelConfigMap = new PixelConfigMap(pixelMap.Count);
+        foreach (var (type, val) in pixelMap)
+        {
+            var pixelConfig = new PixelConfig()
+            {
+                type = type,
+                color = val.color,
+                interactionMask = val.interactionMask,
+                handler = val.handler
+            };
+            pixelConfigMap.AddConfig(type, pixelConfig);
+        }
+        em.CreateSingleton(pixelConfigMap);
+    }
+
+    private void CreateWorldConfig()
+    {
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        WorldConfig worldConfig = new()
+        {
+            chunkCnt = chunkCount,
+            chunkEdge = chunkEdge,
+            width = worldWidth,
+            height = worldHeight
+        };
+        em.CreateSingleton(worldConfig);
     }
 
     private void CreateChunk()
     {
-        chunkCount = new(Mathf.CeilToInt(worldWidth / chunkEdge), Mathf.CeilToInt(worldHeight / chunkEdge));
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         for (int i = 0; i < chunkCount.y; i++)
         {
             for (int j = 0; j < chunkCount.x; j++)
-            {
+            {                
                 var entity = em.CreateEntity();
                 em.AddComponentData(entity, new PixelChunk()
                 {
                     pos = new(j, i),
                     isDirty = false
                 });
-
+                
                 if ((i + j) % 2 == 0)
                 {
                     em.AddComponent<WhiteChunkTag>(entity);

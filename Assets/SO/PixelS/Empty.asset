@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Empty
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.EmptyPixelSO
   type: 2
+  matType: 0
   color:
     serializedVersion: 2
     rgba: 16777215

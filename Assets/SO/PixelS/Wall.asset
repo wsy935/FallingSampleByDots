@@ -13,6 +13,7 @@ MonoBehaviour:
   m_Name: Wall
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.WallPixelSO
   type: 16
+  matType: 0
   color:
     serializedVersion: 2
     rgba: 4290559164

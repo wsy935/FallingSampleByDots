@@ -22,9 +22,10 @@ namespace Pixel
 
     public enum MaterialType
     {
-        Solid = 0,
-        Liquid = 1,
-        Gas = 2
+        Nothing = 0,
+        Solid = 1,
+        Liquid = 2,
+        Gas = 3
     }
 
     public struct WhiteChunkTag : IComponentData { }
