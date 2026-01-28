@@ -8,15 +8,17 @@ using UnityEngine;
 namespace Pixel
 {    
     public struct PixelConfig
-    {        
+    {
         public PixelType type;
+        public MaterialType matType;
         public PixelType interactionMask;
         public Color32 color;
         public FunctionPointer<SimulationHandler> handler;
 
-        public PixelConfig(PixelType type, PixelType interactionMask,Color32 color,FunctionPointer<SimulationHandler> handler)
+        public PixelConfig(PixelType type, PixelType interactionMask,MaterialType materialType,Color32 color,FunctionPointer<SimulationHandler> handler)
         {
             this.type = type;
+            this.matType = materialType;
             this.color = color;
             this.interactionMask = interactionMask;
             this.handler = handler;

@@ -29,7 +29,6 @@ namespace Pixel
         {
             // 尝试向下移动
             if (ctx.TryMoveOrSwap(x, y, x, y - 1)) return;
-
             
             // 尝试斜向下移动
             bool canDownLeft = ctx.CanInteract(x - 1, y - 1);

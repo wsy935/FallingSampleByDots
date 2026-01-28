@@ -38,8 +38,9 @@ namespace Pixel
         public bool isDirty;
     }
     
+    [InternalBufferCapacity(1024)]
     public struct PixelBuffer : IBufferElementData
-    {        
+    {
         public PixelType type;
         public uint lastFrame;
     }

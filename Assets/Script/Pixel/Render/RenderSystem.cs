@@ -31,7 +31,7 @@ namespace Pixel
 
         public void OnUpdate(ref SystemState state)
         {
-            var renderBuffer = tex.Value.GetPixelData<Color32>(0);
+            var renderBuffer = tex.Value.GetRawTextureData<Color32>();            
             var job = new ExtractPixelJob()
             {
                 renderBuffer = renderBuffer,
@@ -40,7 +40,7 @@ namespace Pixel
             };
             state.Dependency = job.ScheduleParallel(state.Dependency);
             state.CompleteDependency();
-            tex.Value.Apply();            
+            tex.Value.Apply(false);
         }
     }
     

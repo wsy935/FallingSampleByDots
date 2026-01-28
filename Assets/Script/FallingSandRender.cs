@@ -25,7 +25,7 @@ public class FallingSandRender : MonoBehaviour
     {
         var fsw = FallingSandWorld.Instance;
         sr = GetComponent<SpriteRenderer>();
-        tex = new(fsw.WorldWidth, fsw.WorldHeight, TextureFormat.RGBA32, false)
+        tex = new(fsw.WorldWidth, fsw.WorldHeight, TextureFormat.RGBA32, false,true)
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp

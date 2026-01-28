@@ -10,10 +10,11 @@ public class FallingSandWorld : MonoBehaviour
     [Header("世界设置")]
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
-    [SerializeField] private int chunkEdge = 8;
     [SerializeField] private PixelSet pixelSet;
+    readonly private int chunkEdge = 32;
     private int2 chunkCount;
     private Dictionary<PixelType, PixelSO> pixelMap;
+    private PixelConfigMap pixelConfigMap;
     public static FallingSandWorld Instance { get; private set; }
 
     public int WorldWidth => worldWidth;
@@ -48,17 +49,23 @@ public class FallingSandWorld : MonoBehaviour
         CreatePixelConfigMap();
     }
 
-    //添加PixelConfigMap单例组件
+    void OnDestroy()
+    {
+        pixelConfigMap.Dispose();
+    }
+
+    //添加PixelConfigMap单例组件,由于其包含NativeContainer,所以缓存该组件，在Destroy时释放
     private void CreatePixelConfigMap()
     {
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        var pixelConfigMap = new PixelConfigMap(pixelMap.Count);
+        pixelConfigMap = new PixelConfigMap(pixelMap.Count);
         foreach (var (type, val) in pixelMap)
         {
             var pixelConfig = new PixelConfig()
             {
                 type = type,
                 color = val.color,
+                matType = val.matType,
                 interactionMask = val.interactionMask,
                 handler = val.handler
             };
@@ -86,14 +93,14 @@ public class FallingSandWorld : MonoBehaviour
         for (int i = 0; i < chunkCount.y; i++)
         {
             for (int j = 0; j < chunkCount.x; j++)
-            {                
+            {
                 var entity = em.CreateEntity();
                 em.AddComponentData(entity, new PixelChunk()
                 {
                     pos = new(j, i),
                     isDirty = false
                 });
-                
+
                 if ((i + j) % 2 == 0)
                 {
                     em.AddComponent<WhiteChunkTag>(entity);
@@ -105,10 +112,9 @@ public class FallingSandWorld : MonoBehaviour
 
                 var buffer = em.AddBuffer<PixelBuffer>(entity);
                 int totalSize = chunkEdge * chunkEdge;
-                buffer.Capacity = totalSize;
                 for (int k = 0; k < totalSize; k++)
                 {
-                    buffer.Add(new PixelBuffer() { type = PixelType.Empty });
+                    buffer.Add(new PixelBuffer { type = PixelType.Empty });
                 }
             }
         }

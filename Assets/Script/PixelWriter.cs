@@ -68,6 +68,7 @@ public class PixelWriter : MonoBehaviour
 
         // 转换为像素坐标（假设sprite的pivot在中心）
         float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
+        // float pixelPerUnit = FallingSandComputeRender.Instance.pixelPerUnit;
         int pixelX = Mathf.FloorToInt((worldPos.x + fsw.WorldWidth / (2f * pixelPerUnit)) * pixelPerUnit);
         int pixelY = Mathf.FloorToInt((worldPos.y + fsw.WorldHeight / (2f * pixelPerUnit)) * pixelPerUnit);
 

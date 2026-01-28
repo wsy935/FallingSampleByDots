@@ -12,6 +12,12 @@ namespace Pixel
         public int2 chunkCnt;
         public int chunkEdge;
 
+        [BurstCompile]
+        public int2 WorldIdxToChunkPos(int x, int y) => new(x / chunkEdge, y / chunkEdge);
+
+
+        [BurstCompile]
+        public int2 WorldIdxToLocalPos(int x, int y) => new(x % chunkEdge, y % chunkEdge);
 
         [BurstCompile]
         public int CoordsToChunkIdx(int x, int y)

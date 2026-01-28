@@ -14,18 +14,22 @@ namespace Pixel
     public struct SimulationContext
     {
         public DynamicBuffer<PixelBuffer> buffer;
+        public PixelConfigMap pixelConfigMap;
         public WorldConfig worldConfig;
         public PixelConfig currentPixelConfig;
         public Random random;
         public uint frameIdx;
+        public PixelChunk curChunk;        
 
-        public PixelChunk chunk;
         public NativeArray<Entity> chunkEntities;
         public BufferLookup<PixelBuffer> bufferLookup;
         public ComponentLookup<PixelChunk> chunkLookup;
 
         [BurstCompile]
         public int GetIndex(int x, int y) => worldConfig.CoordsToChunkIdx(x, y);
+
+        [BurstCompile]
+        public PixelConfig GetPixelConfig(PixelType pixelType) => pixelConfigMap.GetConfig(pixelType);
 
         /// <summary>
         /// 通过像素坐标获取像素数据，如果像素不在世界中，返回Disable
@@ -38,7 +42,7 @@ namespace Pixel
                 return buffer[GetIndex(x, y)];
 
             // 计算邻居Chunk位置和相对坐标                        
-            int2 neighborChunkPos = GetChunkPos(x, y);
+            int2 neighborChunkPos = GetChunk(x, y,curChunk.pos);
             if (!IsChunkInWorld(neighborChunkPos)) return new PixelBuffer { type = PixelType.Disable };
 
             int2 localPos = GetNeighbourLocalPos(x, y);
@@ -56,19 +60,19 @@ namespace Pixel
         private void SetPixel(int x, int y, PixelBuffer pixel)
         {
             if (pixel.type == PixelType.Disable) return;
-
+            
             // 如果在本Chunk范围内，直接写入
-            if (IsInBounds(x, y))
+            if (IsInBounds(x,y))
             {
                 int idx = GetIndex(x, y);
                 pixel.lastFrame = frameIdx;
                 buffer[idx] = pixel;
-                NotifyNeighbour(chunk.pos, x, y);
+                NotifyNeighbour(curChunk.pos, x, y);
                 return;
             }
 
             // 超出范围则写入邻居Chunk
-            int2 neighborChunkPos = GetChunkPos(x, y);
+            int2 neighborChunkPos = GetChunk(x, y,curChunk.pos);
             if (!IsChunkInWorld(neighborChunkPos)) return;
 
             int2 localPos = GetNeighbourLocalPos(x, y);
@@ -79,7 +83,7 @@ namespace Pixel
             // 写入邻居Chunk的Buffer
             if (bufferLookup.TryGetBuffer(entity, out var neighborBuffer))
             {
-                int neighborIdx = GetIndex(localPos.x, localPos.y);
+                int neighborIdx = GetIndex(localPos.x,localPos.y);
                 pixel.lastFrame = frameIdx;
                 neighborBuffer[neighborIdx] = pixel;
                 
@@ -90,7 +94,7 @@ namespace Pixel
         }
 
         /// <summary>
-        /// 在像素处于边缘位置时，设置邻居Chunk Dirty为true
+        /// 在像素处于边缘位置并且更新时，设置邻居Chunk Dirty为true
         /// </summary>
         [BurstCompile]
         private void NotifyNeighbour(int2 chunkPos, int x, int y)
@@ -132,7 +136,7 @@ namespace Pixel
         {            
             var pixel1 = GetPixel(x1, y1);
             var pixel2 = GetPixel(x2, y2);
-            SetPixel(x1, y1, pixel2);
+            SetPixel(x1, y1, pixel2);            
             SetPixel(x2, y2, pixel1);
         }
 
@@ -150,9 +154,9 @@ namespace Pixel
         /// 通过像素坐标计算Chunk坐标，在像素超出当前块范围时为邻居坐标，否则为当前坐标
         /// </summary>
         [BurstCompile]
-        private int2 GetChunkPos(int x, int y)
+        public int2 GetChunk(int x, int y,int2 chunkPos)
         {
-            int2 neighborChunkPos = chunk.pos;
+            int2 neighborChunkPos = chunkPos;
 
             if (x < 0)
             {
@@ -175,7 +179,7 @@ namespace Pixel
         }
 
         [BurstCompile]
-        private int2 GetNeighbourLocalPos(int x, int y)
+        public int2 GetNeighbourLocalPos(int x, int y)
         {
             int localX = x, localY = y;
             if (x < 0)
