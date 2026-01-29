@@ -12,17 +12,17 @@ namespace Pixel
     [BurstCompile]
     public partial struct SimulationSystem : ISystem, ISystemStartStop
     {
-        private PixelConfigMap pixelConfigMap;
+        private PixelConfigMap pixelConfigMap;        
         private NativeArray<Entity> chunkEntities;
         private uint frameIdx;
 
         private WorldConfig worldConfig;
         private bool isInit;
-
+        
         public void OnCreate(ref SystemState state)
         {
             isInit = false;
-            frameIdx = 0;
+            frameIdx = 0;            
         }
 
         [BurstCompile]
@@ -56,10 +56,7 @@ namespace Pixel
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
-        {
-            var blackChunkQuery = SystemAPI.QueryBuilder().WithAll<BlackChunkTag, PixelChunk, PixelBuffer>().Build();
-            var whiteChunkQuery = SystemAPI.QueryBuilder().WithAll<WhiteChunkTag, PixelChunk, PixelBuffer>().Build();
-
+        {        
             var updateChunkJob = new UpdateChunkJob()
             {
                 pixelConfigMap = pixelConfigMap,
@@ -69,9 +66,8 @@ namespace Pixel
                 bufferLookup = SystemAPI.GetBufferLookup<PixelBuffer>(false),
                 chunkLookup = SystemAPI.GetComponentLookup<PixelChunk>(false)
             };
-
-            state.Dependency = updateChunkJob.ScheduleParallel(blackChunkQuery, state.Dependency);
-            state.Dependency = updateChunkJob.ScheduleParallel(whiteChunkQuery, state.Dependency);
+            state.Dependency = updateChunkJob.ScheduleParallel(state.Dependency);
+            // state.Dependency = updateChunkJob.ScheduleParallel(whiteChunkQuery, state.Dependency);            
 
             frameIdx = frameIdx == uint.MaxValue ? 0 : frameIdx + 1;
         }
@@ -93,7 +89,6 @@ namespace Pixel
             public void Execute(ref PixelChunk chunk, DynamicBuffer<PixelBuffer> buffer)
             {
                 // if (!chunk.isDirty) return;
-
                 SimulationContext context = new()
                 {
                     buffer = buffer,
@@ -137,12 +132,12 @@ namespace Pixel
             [BurstCompile]
             private void HandlePixel(int x, int y, ref SimulationContext context)
             {
-                var idx = context.GetIndex(x, y);
-                if ((context.buffer[idx].type & PixelType.NotReact) != 0 || context.buffer[idx].lastFrame == frameIdx)
+                var idx = context.GetIndex(x, y);                
+                if (context.buffer[idx].lastFrame == frameIdx)
                     return;
                 var config = pixelConfigMap.GetConfig(context.buffer[idx].type);
                 context.currentPixelConfig = config;
-                config.handler.Invoke(x, y, ref context);
+                context.curLocalPos = new(x, y);                
             }
         }
     }

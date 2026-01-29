@@ -19,7 +19,8 @@ namespace Pixel
         public PixelConfig currentPixelConfig;
         public Random random;
         public uint frameIdx;
-        public PixelChunk curChunk;        
+        public PixelChunk curChunk;
+        public int2 curLocalPos;
 
         public NativeArray<Entity> chunkEntities;
         public BufferLookup<PixelBuffer> bufferLookup;
@@ -39,9 +40,9 @@ namespace Pixel
         {
             // 如果在本Chunk范围内，直接返回
             if (IsInBounds(x, y))
-                return buffer[GetIndex(x, y)];
+                return buffer[GetIndex(x, y)];            
 
-            // 计算邻居Chunk位置和相对坐标                        
+            // 计算邻居Chunk位置和相对坐标
             int2 neighborChunkPos = GetChunk(x, y,curChunk.pos);
             if (!IsChunkInWorld(neighborChunkPos)) return new PixelBuffer { type = PixelType.Disable };
 
@@ -123,20 +124,20 @@ namespace Pixel
         }
 
         [BurstCompile]
-        public bool TryMoveOrSwap(int x1, int y1, int x2, int y2)
+        public bool TryMoveOrSwap(int x2, int y2)
         {
             // 允许跨Chunk移动
             if (!CanInteract(x2, y2)) return false;
-            Swap(x1, y1, x2, y2);
+            Swap(x2, y2);
             return true;
         }
 
         [BurstCompile]
-        public void Swap(int x1, int y1, int x2, int y2)
+        public void Swap(int x2, int y2)
         {            
-            var pixel1 = GetPixel(x1, y1);
+            var pixel1 = GetPixel(curLocalPos.x, curLocalPos.y);
             var pixel2 = GetPixel(x2, y2);
-            SetPixel(x1, y1, pixel2);            
+            SetPixel(curLocalPos.x,curLocalPos.y, pixel2);
             SetPixel(x2, y2, pixel1);
         }
 
@@ -210,7 +211,7 @@ namespace Pixel
             var targetPixel = GetPixel(x, y);
             if (targetPixel.type == PixelType.Disable) return false;
 
-            return (currentPixelConfig.interactionMask & targetPixel.type) != 0;
+            return false;
         }
     }
 }

@@ -13,7 +13,6 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private PixelSet pixelSet;
     readonly private int chunkEdge = 32;
     private int2 chunkCount;
-    private Dictionary<PixelType, PixelSO> pixelMap;
     private PixelConfigMap pixelConfigMap;
     public static FallingSandWorld Instance { get; private set; }
 
@@ -36,12 +35,6 @@ public class FallingSandWorld : MonoBehaviour
 
     void Start()
     {
-        pixelMap = pixelSet.pixels.ToDictionary(e => e.type);
-        foreach (var e in pixelSet.pixels)
-        {
-            e.ComplieHandler();
-        }
-
         chunkCount = new(Mathf.CeilToInt(worldWidth / chunkEdge), Mathf.CeilToInt(worldHeight / chunkEdge));
 
         CreateChunk();
@@ -58,18 +51,11 @@ public class FallingSandWorld : MonoBehaviour
     private void CreatePixelConfigMap()
     {
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        pixelConfigMap = new PixelConfigMap(pixelMap.Count);
-        foreach (var (type, val) in pixelMap)
-        {
-            var pixelConfig = new PixelConfig()
-            {
-                type = type,
-                color = val.color,
-                matType = val.matType,
-                interactionMask = val.interactionMask,
-                handler = val.handler
-            };
-            pixelConfigMap.AddConfig(type, pixelConfig);
+        var pixelConfigs = pixelSet.configs;
+        pixelConfigMap = new PixelConfigMap(pixelConfigs.Length);
+        foreach (var config in pixelConfigs)
+        {            
+            pixelConfigMap.AddConfig(config.type, config);
         }
         em.CreateSingleton(pixelConfigMap);
     }
@@ -99,16 +85,7 @@ public class FallingSandWorld : MonoBehaviour
                 {
                     pos = new(j, i),
                     isDirty = false
-                });
-
-                if ((i + j) % 2 == 0)
-                {
-                    em.AddComponent<WhiteChunkTag>(entity);
-                }
-                else
-                {
-                    em.AddComponent<BlackChunkTag>(entity);
-                }
+                });                
 
                 var buffer = em.AddBuffer<PixelBuffer>(entity);
                 int totalSize = chunkEdge * chunkEdge;

@@ -12,8 +12,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 06a782a52a9bbd944a9d7b63a00dfea3, type: 3}
   m_Name: PixelSet
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.PixelSet
-  pixels:
-  - {fileID: 11400000, guid: 80e136af2cfcd2c4c9f37cd6c880ec0c, type: 2}
-  - {fileID: 11400000, guid: 065313fa07fc7084592fe5068d39242b, type: 2}
-  - {fileID: 11400000, guid: 605facafad954894bae8ae46a3da1274, type: 2}
-  - {fileID: 11400000, guid: 10320738b6819aa418f716d7d7ef94d4, type: 2}
+  configs:
+  - type: 2
+    matType: 0
+    interactionFlag: 0
+    color:
+      serializedVersion: 2
+      rgba: 16777215
+  - type: 4
+    matType: 1
+    interactionFlag: 1
+    color:
+      serializedVersion: 2
+      rgba: 4278232319
+  - type: 8
+    matType: 2
+    interactionFlag: 1
+    color:
+      serializedVersion: 2
+      rgba: 4294944768
+  - type: 16
+    matType: 1
+    interactionFlag: 1
+    color:
+      serializedVersion: 2
+      rgba: 4288322202

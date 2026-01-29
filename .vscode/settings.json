@@ -68,5 +68,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "FallingSampleByDots.slnx"
+    "dotnet.defaultSolution": "FallingSampleByDots.slnx",        
 }

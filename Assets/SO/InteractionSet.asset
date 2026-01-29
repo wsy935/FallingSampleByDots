@@ -9,12 +9,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1ab1f099746629e41b715b9959fb8f90, type: 3}
-  m_Name: Empty
-  m_EditorClassIdentifier: Assembly-CSharp::Pixel.EmptyPixelSO
-  type: 2
-  matType: 0
-  color:
-    serializedVersion: 2
-    rgba: 16777215
-  interactionMask: 0
+  m_Script: {fileID: 11500000, guid: c2260e16487eb1e4ea150561a1a068c7, type: 3}
+  m_Name: InteractionSet
+  m_EditorClassIdentifier: Assembly-CSharp::Pixel.InteractionSet
+  configs:
+  - flag1: 2
+    flag2: 4
+    results:
+    - type1: 8
+      type2: 4
+      result: 16
