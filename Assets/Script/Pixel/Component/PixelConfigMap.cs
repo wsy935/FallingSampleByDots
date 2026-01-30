@@ -6,30 +6,31 @@ using Unity.Mathematics;
 
 namespace Pixel
 {    
-    public struct PixelConfigMap : IComponentData,IDisposable
+    [BurstCompile]
+    public struct PixelConfigLookup : IComponentData,IDisposable
     {
         private NativeArray<PixelConfig> configs;
 
-        public PixelConfigMap(int size)
+        public PixelConfigLookup(int size,Allocator allocator)
         {
-            configs = new(size, Allocator.Persistent);
-        }
- 
-        public void AddConfig(PixelType type, PixelConfig config)
-        {
-            int key = GetKey(type);
-            configs[key] = config;
+            configs = new(size, allocator);
         }
 
-        private int GetKey(PixelType pixelType)
+        public void AddConfig(PixelType type, PixelConfig config)
         {
-            // -1 以偏移掉Disable
-            return math.tzcnt((int)pixelType) - 1;
+            //-1 偏移Nothing
+            int key = (int)type-1;
+            if (key >= configs.Length)
+            {
+                throw new IndexOutOfRangeException($"[PixelConfigLookup] not compatible Type in configs with {type}");
+            }
+            configs[key] = config;
         }
         
+        [BurstCompile]
         public PixelConfig GetConfig(PixelType type)
         {
-            int key = GetKey(type);
+            int key = (int)type-1;
             return configs[key];
         }
 

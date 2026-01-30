@@ -13,27 +13,35 @@ MonoBehaviour:
   m_Name: PixelSet
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.PixelSet
   configs:
-  - type: 2
+  - type: 1
     matType: 0
+    moveFlag: 0
     interactionFlag: 0
+    density: 1
     color:
       serializedVersion: 2
       rgba: 16777215
-  - type: 4
+  - type: 2
     matType: 1
+    moveFlag: 19
     interactionFlag: 1
+    density: 1000
     color:
       serializedVersion: 2
       rgba: 4278232319
-  - type: 8
+  - type: 3
     matType: 2
+    moveFlag: 26
     interactionFlag: 1
+    density: 100
     color:
       serializedVersion: 2
       rgba: 4294944768
-  - type: 16
+  - type: 4
     matType: 1
+    moveFlag: 0
     interactionFlag: 1
+    density: 10000
     color:
       serializedVersion: 2
       rgba: 4288322202

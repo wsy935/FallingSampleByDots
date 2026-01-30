@@ -4,6 +4,7 @@ using UnityEngine;
 using Pixel;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
 
 public class FallingSandWorld : MonoBehaviour
 {
@@ -11,15 +12,14 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
     [SerializeField] private PixelSet pixelSet;
-    readonly private int chunkEdge = 32;
-    private int2 chunkCount;
-    private PixelConfigMap pixelConfigMap;
+    private PixelConfigLookup pixelLookup;
+    private WorldConfig worldConfig;
+    //NativeArray是值类型，修改时需要重新赋值，所以放弃使用二维数组
+    private NativeArray<PixelType> pixelBuffer;
     public static FallingSandWorld Instance { get; private set; }
 
-    public int WorldWidth => worldWidth;
-    public int WorldHeight => worldHeight;
-    public int ChunkEdge => chunkEdge;
-    public int2 ChunkCount => chunkCount;
+    public WorldConfig WorldConfig => worldConfig;    
+    public NativeArray<PixelType> PixelBuffer => pixelBuffer;
 
     void Awake()
     {
@@ -31,20 +31,26 @@ public class FallingSandWorld : MonoBehaviour
         {
             Destroy(this);
         }
+        InitWorld();
     }
 
     void Start()
-    {
-        chunkCount = new(Mathf.CeilToInt(worldWidth / chunkEdge), Mathf.CeilToInt(worldHeight / chunkEdge));
-
-        CreateChunk();
-        CreateWorldConfig();
-        CreatePixelConfigMap();
+    {                
     }
 
     void OnDestroy()
     {
-        pixelConfigMap.Dispose();
+        pixelBuffer.Dispose();
+        pixelLookup.Dispose();
+    }
+    
+    private void InitWorld()
+    {
+        pixelBuffer = new(worldHeight * worldWidth, Allocator.Persistent);
+        for (int i = 0; i < pixelBuffer.Length; i++)
+            pixelBuffer[i] = PixelType.Empty;
+        CreateWorldConfig();
+        CreatePixelConfigMap();    
     }
 
     //添加PixelConfigMap单例组件,由于其包含NativeContainer,所以缓存该组件，在Destroy时释放
@@ -52,62 +58,22 @@ public class FallingSandWorld : MonoBehaviour
     {
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         var pixelConfigs = pixelSet.configs;
-        pixelConfigMap = new PixelConfigMap(pixelConfigs.Length);
+        pixelLookup = new PixelConfigLookup(pixelConfigs.Length,Allocator.Persistent);
         foreach (var config in pixelConfigs)
         {            
-            pixelConfigMap.AddConfig(config.type, config);
+            pixelLookup.AddConfig(config.type, config);
         }
-        em.CreateSingleton(pixelConfigMap);
+        em.CreateSingleton(pixelLookup);
     }
 
     private void CreateWorldConfig()
     {
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        WorldConfig worldConfig = new()
+        worldConfig = new()
         {
-            chunkCnt = chunkCount,
-            chunkEdge = chunkEdge,
             width = worldWidth,
             height = worldHeight
         };
         em.CreateSingleton(worldConfig);
-    }
-
-    private void CreateChunk()
-    {
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        for (int i = 0; i < chunkCount.y; i++)
-        {
-            for (int j = 0; j < chunkCount.x; j++)
-            {
-                var entity = em.CreateEntity();
-                em.AddComponentData(entity, new PixelChunk()
-                {
-                    pos = new(j, i),
-                    isDirty = false
-                });                
-
-                var buffer = em.AddBuffer<PixelBuffer>(entity);
-                int totalSize = chunkEdge * chunkEdge;
-                for (int k = 0; k < totalSize; k++)
-                {
-                    buffer.Add(new PixelBuffer { type = PixelType.Empty });
-                }
-            }
-        }
-    }
-
-    public int GetWorldIdx(in PixelChunk pixelChunk, int x, int y)
-    {
-        var pos = pixelChunk.pos;
-        //先从局部坐标转化到世界坐标再转换
-        int worldX = pos.x * chunkEdge + x;
-        int worldY = pos.y * chunkEdge + y;
-        return worldY * worldWidth + worldX;
-    }
-
-    public int GetChunkIdx(int x, int y)
-    {
-        return y * chunkEdge + x;
     }
 }

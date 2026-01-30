@@ -25,11 +25,12 @@ public class FallingSandRender : MonoBehaviour
     {
         var fsw = FallingSandWorld.Instance;
         sr = GetComponent<SpriteRenderer>();
-        tex = new(fsw.WorldWidth, fsw.WorldHeight, TextureFormat.RGBA32, false,true)
+        var worldConfig = fsw.WorldConfig;        
+        tex = new(worldConfig.width, worldConfig.height, TextureFormat.RGBA32, false,true)
         {
             filterMode = FilterMode.Point,
             wrapMode = TextureWrapMode.Clamp
         };        
-        sr.sprite = Sprite.Create(tex, new(0, 0, fsw.WorldWidth, fsw.WorldHeight), new(0.5f, 0.5f), pixelPerUnit);
+        sr.sprite = Sprite.Create(tex, new(0, 0, worldConfig.width,worldConfig.height), new(0.5f, 0.5f), pixelPerUnit);
     }    
 }

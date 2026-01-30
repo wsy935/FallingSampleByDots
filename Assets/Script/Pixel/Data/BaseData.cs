@@ -2,14 +2,14 @@ using System;
 
 namespace Pixel
 {    
-    public enum PixelType
+    public enum PixelType : byte
     {
         // 不可用
-        Disable = 1 << 0,
-        Empty = 1 << 1,
-        Sand = 1 << 2,
-        Water = 1 << 3,
-        Wall = 1 << 4,        
+        Disable = 0,
+        Empty = 1,
+        Sand = 2,
+        Water = 3,
+        Wall = 4
     }
 
     public enum MaterialType
@@ -23,7 +23,7 @@ namespace Pixel
     [Flags]
     public enum MoveFlag : byte
     {
-        None = 1 << 0,
+        Nothing = 1 << 0,
         //下移
         Down = 1 << 1,
         //上浮
@@ -32,14 +32,14 @@ namespace Pixel
         Horizontal = 1 << 3,
         //对角线移动
         Diagonal = 1 << 4,
-        DownDiagonal = Down & Diagonal,
-        UpDiagonal = Up & Diagonal
+        DownDiagonal = Down | Diagonal,
+        UpDiagonal = Up | Diagonal
     }
 
     [Flags]
     public enum InteractionFlag : byte
     {
-        None = 1 << 0,
+        Nothing = 1 << 0,
         Hot = 1 << 1,
         Cold = 1 << 2,
     }

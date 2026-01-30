@@ -8,6 +8,7 @@ namespace Pixel
     {
         public PixelType type;
         public MaterialType matType;
+        public MoveFlag moveFlag;
         public InteractionFlag interactionFlag;
         public float density;                 
         public Color32 color;

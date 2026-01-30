@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Pixel;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -15,14 +16,14 @@ public class PixelWriter : MonoBehaviour
     [SerializeField] private int brushSize = 3;
 
     private Camera mainCamera;
-    private FallingSandWorld fsw;
-    private EntityManager entityManager;
+    private NativeArray<PixelType> buffer;
+    private FallingSandWorld fsw;        
 
     private void Start()
     {
         mainCamera = Camera.main;
         fsw = FallingSandWorld.Instance;
-        entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+        buffer = fsw.PixelBuffer;
     }
 
     private void Update()
@@ -68,27 +69,23 @@ public class PixelWriter : MonoBehaviour
 
         // 转换为像素坐标（假设sprite的pivot在中心）
         float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
-        // float pixelPerUnit = FallingSandComputeRender.Instance.pixelPerUnit;
-        int pixelX = Mathf.FloorToInt((worldPos.x + fsw.WorldWidth / (2f * pixelPerUnit)) * pixelPerUnit);
-        int pixelY = Mathf.FloorToInt((worldPos.y + fsw.WorldHeight / (2f * pixelPerUnit)) * pixelPerUnit);
+        var worldConfig = fsw.WorldConfig;
+        int pixelX = Mathf.FloorToInt(worldPos.x * pixelPerUnit + (worldConfig.width/2));
+        int pixelY = Mathf.FloorToInt(worldPos.y * pixelPerUnit + (worldConfig.height/2));
 
         return new Vector2(pixelX, pixelY);
     }
 
     private void FillAll()
     {
-        var query = entityManager.CreateEntityQuery(typeof(PixelChunk), typeof(PixelBuffer));
-        var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);        
-        foreach (var entity in entities)
+        var worldConfig = fsw.WorldConfig;
+        for(int i = 0; i < worldConfig.height; i++)
         {
-            var buffer = entityManager.GetBuffer<PixelBuffer>(entity);
-            for (int i = 0; i < buffer.Length; i++)
+            for(int j = 0; j < worldConfig.width; j++)
             {
-                var temp = buffer[i];
-                temp.type = pixelType;
-                buffer[i] = temp;
+                int idx = worldConfig.CoordsToIdx(j, i);
+                buffer[idx] = PixelType.Sand;
             }
-                
         }
     }
 
@@ -99,8 +96,7 @@ public class PixelWriter : MonoBehaviour
     {
         int centerX = (int)worldPos.x;
         int centerY = (int)worldPos.y;
-
-        Dictionary<int2, List<int>> idxMap = new();
+        
         // 使用圆形笔刷
         for (int dy = -brushSize; dy <= brushSize; dy++)
         {
@@ -112,45 +108,12 @@ public class PixelWriter : MonoBehaviour
 
                 int x = centerX + dx;
                 int y = centerY + dy;
-                if (x < 0 || x >= fsw.WorldWidth || y < 0 || y >= fsw.WorldHeight)
+                if (!fsw.WorldConfig.IsInWorld(x, y))
                     continue;
-                // 计算chunk坐标和局部坐标
-                int chunkX = x / fsw.ChunkEdge;
-                int chunkY = y / fsw.ChunkEdge;
-                int localX = x % fsw.ChunkEdge;
-                int localY = y % fsw.ChunkEdge;
-                int2 chunkPos = new(chunkX, chunkY);
-                if (idxMap.TryGetValue(chunkPos, out var idxs))
-                {
-                    idxs.Add(fsw.GetChunkIdx(localX, localY));
-                }
-                else
-                {
-                    idxMap[chunkPos] = new() { fsw.GetChunkIdx(localX, localY) };
-                }
+                int idx = fsw.WorldConfig.CoordsToIdx(x, y);
+                buffer[idx] = type;
             }
-        }
-        // 查找对应的chunk entity
-        var query = entityManager.CreateEntityQuery(typeof(PixelChunk), typeof(PixelBuffer));
-        var entities = query.ToEntityArray(Unity.Collections.Allocator.Temp);
-
-        foreach (var entity in entities)
-        {
-            var chunk = entityManager.GetComponentData<PixelChunk>(entity);
-            if (idxMap.TryGetValue(chunk.pos, out var idxs))
-            {
-                var buffer = entityManager.GetBuffer<PixelBuffer>(entity);
-
-                foreach (var idx in idxs)
-                {
-                    buffer[idx] = new PixelBuffer { type = type };
-                }
-
-                // 标记chunk为dirty以触发模拟
-                chunk.isDirty = true;
-                entityManager.SetComponentData(entity, chunk);
-            }
-        }
+        }        
     }
 
     private void OnGUI()

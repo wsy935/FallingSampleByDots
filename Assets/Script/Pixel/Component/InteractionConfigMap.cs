@@ -45,11 +45,11 @@ namespace Pixel
         }
     }
  
-    public struct InteractionConfigMap : IComponentData, IDisposable
+    public struct InteractionLookup : IComponentData, IDisposable
     {
         private NativeHashMap<InteractionLookupKey, PixelType> _lookupMap;
 
-        public InteractionConfigMap(int capacity, Allocator allocator)
+        public InteractionLookup(int capacity, Allocator allocator)
         {
             _lookupMap = new NativeHashMap<InteractionLookupKey, PixelType>(capacity, allocator);
         }
