@@ -1,30 +1,27 @@
 using Unity.Burst;
 using Unity.Collections;
-using Unity.Entities;
-using Unity.Mathematics;
-using UnityEngine;
 
 using Random = Unity.Mathematics.Random;
 namespace Pixel
 {
-
     [BurstCompile]
     public struct SimulationHandler
     {
         public PixelConfigLookup pixelConfigLookup;
-        public NativeArray<PixelType> buffer;
+        public NativeArray<PixelData> buffer;
         public WorldConfig worldConfig;
-        public Random random;
         public uint frameIdx;
-        
+
         [BurstCompile]
-        public void HandleMove(int x, int y)
+        public void HandleMove(int x, int y,in Random random)
         {
             if (!worldConfig.IsInWorld(x, y)) return;
             
             int idx = worldConfig.CoordsToIdx(x,y);
-            var type = buffer[idx];
+            var type = buffer[idx].type;
             var config = pixelConfigLookup.GetConfig(type);
+            if (config.moveFlag == MoveFlag.Nothing) return;
+
             //上下移动
             if ((config.moveFlag & MoveFlag.Down) != 0 && TryMove(x, y, x, y - 1))
                 return;
@@ -34,7 +31,7 @@ namespace Pixel
             //斜向移动
             if ((config.moveFlag & MoveFlag.DownDiagonal) != 0 && TryMove(x, y, x + dir, y - 1))
                 return;
-            if ((config.moveFlag & MoveFlag.UpDiagonal) != 0 && TryMove(x, y, x + dir, y + 1))
+            if ((config.moveFlag & MoveFlag.UpDiagonal) != 0 && TryMove(x, y, x + dir, y + 1,false))
                 return;
             //水平移动
             if ((config.moveFlag & MoveFlag.Horizontal) != 0 && TryMove(x, y, x + dir, y))
@@ -50,13 +47,23 @@ namespace Pixel
             if (!worldConfig.IsInWorld(tarX, tarY)) return false;
 
             int srcIdx = worldConfig.CoordsToIdx(srcX, srcY);
-            var srcConfig = pixelConfigLookup.GetConfig(buffer[srcIdx]);
+            var srcConfig = pixelConfigLookup.GetConfig(buffer[srcIdx].type);
             int tarIdx = worldConfig.CoordsToIdx(tarX, tarY);
-            var tarConfig = pixelConfigLookup.GetConfig(buffer[tarIdx]);
+            var tarConfig = pixelConfigLookup.GetConfig(buffer[tarIdx].type);
 
             if (op ? srcConfig.density > tarConfig.density : srcConfig.density < tarConfig.density)
             {
                 (buffer[srcIdx], buffer[tarIdx]) = (buffer[tarIdx], buffer[srcIdx]);
+                buffer[srcIdx] = new()
+                {
+                    type = buffer[srcIdx].type,
+                    frameIdx = frameIdx
+                };
+                buffer[tarIdx] = new()
+                {
+                    type = buffer[tarIdx].type,
+                    frameIdx = frameIdx
+                };
                 return true;
             }
             return false;

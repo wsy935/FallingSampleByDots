@@ -212,6 +212,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FallingSandRender
   pixelPerUnit: 64
+  showDirtyChunks: 1
+  dirtyChunkColor: {r: 1, g: 0, b: 0, a: 0.3}
 --- !u!212 &855104781
 SpriteRenderer:
   serializedVersion: 2
@@ -300,7 +302,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 95d4cf9a537820c41a9e0a94ece3a50a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PixelWriter
-  pixelType: 4
+  pixelType: 2
   brushSize: 3
 --- !u!4 &927146693
 Transform:

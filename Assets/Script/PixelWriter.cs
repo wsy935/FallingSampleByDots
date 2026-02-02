@@ -5,7 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
-
+using Rect = Pixel.Rect;
 /// <summary>
 /// 像素写入器 - 支持在世界中写入像素
 /// </summary>
@@ -16,13 +16,15 @@ public class PixelWriter : MonoBehaviour
     [SerializeField] private int brushSize = 3;
 
     private Camera mainCamera;
-    private NativeArray<PixelType> buffer;
-    private FallingSandWorld fsw;        
+    private NativeArray<PixelData> buffer;
+    private FallingSandWorld fsw;
+    private DirtyChunkManager dirtyChunkManager;
 
     private void Start()
     {
         mainCamera = Camera.main;
         fsw = FallingSandWorld.Instance;
+        dirtyChunkManager = fsw.DirtyChunkManager;
         buffer = fsw.PixelBuffer;
     }
 
@@ -79,14 +81,20 @@ public class PixelWriter : MonoBehaviour
     private void FillAll()
     {
         var worldConfig = fsw.WorldConfig;
-        for(int i = 0; i < worldConfig.height; i++)
+        dirtyChunkManager.ForceClear();
+        for (int i = 0; i < worldConfig.height; i++)
         {
-            for(int j = 0; j < worldConfig.width; j++)
+            for (int j = 0; j < worldConfig.width; j++)
             {
                 int idx = worldConfig.CoordsToIdx(j, i);
-                buffer[idx] = PixelType.Sand;
+                buffer[idx] = new()
+                {
+                    type = pixelType,
+                    frameIdx = buffer[idx].frameIdx
+                };
             }
         }
+        dirtyChunkManager.AddChunk(new(0, 0, worldConfig.width, worldConfig.height));
     }
 
     /// <summary>
@@ -96,8 +104,12 @@ public class PixelWriter : MonoBehaviour
     {
         int centerX = (int)worldPos.x;
         int centerY = (int)worldPos.y;
-        
+
         // 使用圆形笔刷
+        int size = brushSize * 2;
+        Rect rect = new(centerX - brushSize, centerY - brushSize, size, size);
+        rect = rect.Clamp(new(0, 0, fsw.WorldConfig.width, fsw.WorldConfig.height));
+        fsw.DirtyChunkManager.AddChunk(new(rect));
         for (int dy = -brushSize; dy <= brushSize; dy++)
         {
             for (int dx = -brushSize; dx <= brushSize; dx++)
@@ -111,7 +123,11 @@ public class PixelWriter : MonoBehaviour
                 if (!fsw.WorldConfig.IsInWorld(x, y))
                     continue;
                 int idx = fsw.WorldConfig.CoordsToIdx(x, y);
-                buffer[idx] = type;
+                buffer[idx] = new()
+                {
+                    type = type,
+                    frameIdx = buffer[idx].frameIdx
+                };
             }
         }        
     }
@@ -119,11 +135,11 @@ public class PixelWriter : MonoBehaviour
     private void OnGUI()
     {
         // 显示当前状态
-        GUI.Box(new Rect(10, 10, 250, 120), "Pixel Writer");
-        GUI.Label(new Rect(20, 35, 230, 20), $"Current Type: {pixelType}");
-        GUI.Label(new Rect(20, 55, 230, 20), $"Brush Size: {brushSize}");
-        GUI.Label(new Rect(20, 75, 230, 20), $"Left Click: Draw | Right Click: Erase");
-        GUI.Label(new Rect(20, 95, 230, 20), $"1-4: Change Type | Scroll: Brush Size");
-        GUI.Label(new Rect(20, 115, 230, 20), $"Mouse Pos: {GetMouseWorldPosition()}");
+        GUI.Box(new UnityEngine.Rect(10, 10, 250, 120), "Pixel Writer");
+        GUI.Label(new UnityEngine.Rect(20, 35, 230, 20), $"Current Type: {pixelType}");
+        GUI.Label(new UnityEngine.Rect(20, 55, 230, 20), $"Brush Size: {brushSize}");
+        GUI.Label(new UnityEngine.Rect(20, 75, 230, 20), $"Left Click: Draw | Right Click: Erase");
+        GUI.Label(new UnityEngine.Rect(20, 95, 230, 20), $"1-4: Change Type | Scroll: Brush Size");
+        GUI.Label(new UnityEngine.Rect(20, 115, 230, 20), $"Mouse Pos: {GetMouseWorldPosition()}");
     }
 }
