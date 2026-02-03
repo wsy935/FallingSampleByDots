@@ -163,13 +163,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c6eecdb2ea47594d99652f690d94bfd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FallingSandWorld
-  frame: 60
   worldWidth: 512
   worldHeight: 512
   pixelSet: {fileID: 11400000, guid: 049286279ce69144c86e08b77f9cd514, type: 2}
-  maxChunkSize: 256
-  chunkBorder: 2
-  gridSize: 64
 --- !u!1 &855104776
 GameObject:
   m_ObjectHideFlags: 0

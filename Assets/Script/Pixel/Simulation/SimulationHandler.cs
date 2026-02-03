@@ -10,10 +10,11 @@ namespace Pixel
         public PixelConfigLookup pixelConfigLookup;
         public NativeArray<PixelData> buffer;
         public WorldConfig worldConfig;
+        public Random random;
         public uint frameIdx;
 
         [BurstCompile]
-        public void HandleMove(int x, int y,in Random random)
+        public void HandleMove(int x, int y)
         {
             if (!worldConfig.IsInWorld(x, y)) return;
             
@@ -49,6 +50,8 @@ namespace Pixel
             int srcIdx = worldConfig.CoordsToIdx(srcX, srcY);
             var srcConfig = pixelConfigLookup.GetConfig(buffer[srcIdx].type);
             int tarIdx = worldConfig.CoordsToIdx(tarX, tarY);
+            if (buffer[tarIdx].frameIdx == frameIdx && buffer[tarIdx].type != PixelType.Empty)
+                return false;
             var tarConfig = pixelConfigLookup.GetConfig(buffer[tarIdx].type);
 
             if (op ? srcConfig.density > tarConfig.density : srcConfig.density < tarConfig.density)

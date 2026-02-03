@@ -29,7 +29,7 @@ namespace Pixel
         {
             if (isInit) return;
             tex = FallingSandRender.Instance.Tex;
-            buffer = FallingSandWorld.Instance.PixelBuffer;
+            buffer = SystemAPI.GetSingleton<PixelBuffer>().buffer;
             dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
             pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>();
             worldConfig = SystemAPI.GetSingleton<WorldConfig>();
@@ -48,10 +48,10 @@ namespace Pixel
                 buffer = buffer,
                 worldConfig = worldConfig
             };
-            Dependency = job.Schedule(dirtyChunks.Length, 1,Dependency);
+            Dependency = job.Schedule(dirtyChunks.Length, 1, Dependency);
             CompleteDependency();
-            
-            tex.Apply(false);            
+
+            tex.Apply(false);
         }
     }
 

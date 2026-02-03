@@ -4,32 +4,34 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Pixel
 {
     [BurstCompile]
-    public struct DirtyChunkManager : IComponentData,IDisposable
+    public struct DirtyChunkManager : IComponentData, IDisposable
     {
         private NativeList<DirtyChunk> dirtyChunks;
         //像素缓存数组
-        private NativeArray<PixelData> buffer;        
+        private NativeArray<PixelData> buffer;
         //当块的大小超过maxChunkSize时，尝试拆分块
         private int maxChunkSize;
-        //最小块尺寸，避免过度碎片化
-        private int minChunkSize;
+
         private WorldConfig worldConfig;
         //当块与块之间的间距小于chunkBorder时，尝试合并块
         private int chunkBorder;
+        //固定网格大小，用于分割大块
+        private int gridSize;
 
-        public DirtyChunkManager(Allocator allocator, NativeArray<PixelData> buffer, WorldConfig worldConfig, int maxChunkSize = 256, int minChunkSize = 4, int chunkBorder = 1)
+        public DirtyChunkManager(Allocator allocator, NativeArray<PixelData> buffer, WorldConfig worldConfig, int maxChunkSize = 128, int chunkBorder = 1, int gridSize = 64)
         {
-            dirtyChunks = new(allocator);            
+            dirtyChunks = new(allocator);
 
             this.buffer = buffer;
             this.worldConfig = worldConfig;
             this.maxChunkSize = maxChunkSize;
-            this.minChunkSize = minChunkSize;
             this.chunkBorder = chunkBorder;
+            this.gridSize = gridSize;
         }
 
         public readonly NativeList<DirtyChunk> GetDirtyChunks() => dirtyChunks;
@@ -40,19 +42,28 @@ namespace Pixel
         }
 
         /// <summary>
+        /// 整理当前脏区块
+        /// </summary>
+        public void Reset()
+        {
+            Clear();
+            SplitChunk();
+            MergeChunk();
+        }
+
+        /// <summary>
         /// 移除非脏的区块
         /// </summary>
         [BurstCompile]
         public void Clear()
         {
-            for (int i = 0; i < dirtyChunks.Length; i++)
+            for (int i = dirtyChunks.Length-1; i >=0; i--)
             {
                 if (!dirtyChunks[i].isDirty && dirtyChunks[i].notDirtyFrame > 1)
                 {
                     dirtyChunks.RemoveAtSwapBack(i);
-                    i--;
-                }                    
-            }            
+                }
+            }
         }
 
         /// <summary>
@@ -74,11 +85,12 @@ namespace Pixel
             dirtyChunks.Sort();
             for (int i = 0; i < dirtyChunks.Length; i++)
             {
-                int j = i + 1;
-                var chunk1 = dirtyChunks.ElementAt(i);
+                int j = i + 1;                
                 while (j < dirtyChunks.Length)
                 {
-                    ref var chunk2 = ref dirtyChunks.ElementAt(j);
+                    //在Impl中会被重新设置
+                    var chunk1 = dirtyChunks.ElementAt(i);
+                    var chunk2 = dirtyChunks.ElementAt(j);
                     if (IsIntersect(in chunk1, in chunk2))
                     {
                         //将j处的矩形移除了，所以j无需变化
@@ -104,17 +116,21 @@ namespace Pixel
             //合并两个矩形
             Rect newRect = Rect.Union(chunk1.rect, chunk2.rect);
 
-            dirtyChunks[i] = new DirtyChunk(newRect, true);
+            dirtyChunks[i] = new DirtyChunk(newRect, chunk1.isDirty || chunk2.isDirty)
+            {
+                notDirtyFrame = math.min(chunk1.notDirtyFrame,chunk2.notDirtyFrame)
+            };
+            
             dirtyChunks.RemoveAt(j);
         }
 
         /// <summary>
-        /// 分割超过最大尺寸的脏区块
+        /// 分割超过最大尺寸的脏区块，按照固定大小划分
         /// </summary>
         [BurstCompile]
         public void SplitChunk()
         {
-            NativeList<int> splitChunks = new(Allocator.Temp);
+            NativeList<int> splitChunks = new(4,Allocator.Temp);
             for (int i = 0; i < dirtyChunks.Length; i++)
             {
                 var curSize = dirtyChunks[i].rect.Size;
@@ -123,8 +139,7 @@ namespace Pixel
                     splitChunks.Add(i);
                 }
             }
-
-            // 从后往前处理，避免索引变化问题
+            
             for (int i = splitChunks.Length - 1; i >= 0; i--)
             {
                 int idx = splitChunks[i];
@@ -135,7 +150,7 @@ namespace Pixel
         }
 
         /// <summary>
-        /// 使用并查集分析连通区域并分割单个chunk
+        /// 使用固定网格分割单个chunk
         /// </summary>
         [BurstCompile]
         private void SplitChunk_Impl(int chunkIndex)
@@ -143,154 +158,110 @@ namespace Pixel
             var chunk = dirtyChunks[chunkIndex];
             var chunkRect = chunk.rect;
 
-            int chunkWidth = chunkRect.width;
-            int chunkHeight = chunkRect.height;
-            int totalPixels = chunkWidth * chunkHeight;
+            // 计算需要划分多少个网格
+            int gridCountX = (chunkRect.width + gridSize - 1) / gridSize;
+            int gridCountY = (chunkRect.height + gridSize - 1) / gridSize;
 
-            // 创建并查集和 AABB 追踪器
-            var unionFind = new UnionFind(totalPixels, Allocator.Temp);
-            var aabbTracker = new NativeHashMap<int, Rect>(16, Allocator.Temp);
+            // 存储有效网格的 AABB
+            var validAABBs = new NativeList<Rect>(4, Allocator.Temp);
 
-            // 八个方向的偏移量
-            var directions = new NativeArray<int2>(8, Allocator.Temp);
-            directions[0] = new int2(-1, 0);  // 左
-            directions[1] = new int2(1, 0);   // 右
-            directions[2] = new int2(0, -1);  // 下
-            directions[3] = new int2(0, 1);   // 上
-            directions[4] = new int2(-1, -1); // 左下
-            directions[5] = new int2(-1, 1);  // 左上
-            directions[6] = new int2(1, -1);  // 右下
-            directions[7] = new int2(1, 1);   // 右上
-
-            // 单次遍历：构建并查集并同时计算 AABB
-            for (int y = 0; y < chunkHeight; y++)
+            // 遍历每个网格
+            for (int gy = 0; gy < gridCountY; gy++)
             {
-                for (int x = 0; x < chunkWidth; x++)
+                for (int gx = 0; gx < gridCountX; gx++)
                 {
-                    int localIdx = y * chunkWidth + x;
+                    // 计算当前网格的边界（世界坐标）
+                    int gridMinX = chunkRect.x + gx * gridSize;
+                    int gridMinY = chunkRect.y + gy * gridSize;
+                    int gridMaxX = math.min(gridMinX + gridSize, chunkRect.MaxX);
+                    int gridMaxY = math.min(gridMinY + gridSize, chunkRect.MaxY);
 
-                    // 获取世界坐标的像素类型
-                    int worldX = chunkRect.x + x;
-                    int worldY = chunkRect.y + y;
-                    int worldIdx = worldConfig.CoordsToIdx(worldX, worldY);
-                    PixelType pixelType = buffer[worldIdx].type;
+                    // 计算该网格内的有效像素 AABB
+                    var aabb = CalculateGridAABB(gridMinX, gridMinY, gridMaxX, gridMaxY);
 
-                    // 如果是空像素，跳过
-                    if (pixelType == PixelType.Empty || pixelType == PixelType.Disable)
-                        continue;
-
-                    // 检查八个方向的邻居
-                    for (int d = 0; d < 8; d++)
+                    // 如果该网格包含有效像素，添加到列表
+                    if (aabb.width > 0 && aabb.height > 0)
                     {
-                        int2 dir = directions[d];
-                        int neighborX = x + dir.x;
-                        int neighborY = y + dir.y;
-
-                        // 检查是否在 chunk 范围内
-                        if (neighborX >= 0 && neighborX < chunkWidth &&
-                            neighborY >= 0 && neighborY < chunkHeight)
-                        {
-                            int neighborLocalIdx = neighborY * chunkWidth + neighborX;
-                            int neighborWorldX = chunkRect.x + neighborX;
-                            int neighborWorldY = chunkRect.y + neighborY;
-                            int neighborWorldIdx = worldConfig.CoordsToIdx(neighborWorldX, neighborWorldY);
-                            PixelType neighborPixelType = buffer[neighborWorldIdx].type;
-
-                            if (neighborPixelType != PixelType.Empty && neighborPixelType != PixelType.Disable)
-                            {
-                                unionFind.Union(localIdx, neighborLocalIdx);
-                            }
-                        }
-                    }
-
-                    // 获取当前像素的根节点（使用路径压缩后的结果）
-                    int root = unionFind.Find(localIdx);
-
-                    // 更新或创建该根节点的 AABB
-                    if (aabbTracker.TryGetValue(root, out Rect existingRect))
-                    {
-                        // 扩展现有 AABB
-                        int minX = math.min(existingRect.x, worldX);
-                        int minY = math.min(existingRect.y, worldY);
-                        int maxX = math.max(existingRect.MaxX, worldX + 1);
-                        int maxY = math.max(existingRect.MaxY, worldY + 1);
-                        
-                        aabbTracker[root] = new Rect(minX, minY, maxX - minX, maxY - minY);
-                    }
-                    else
-                    {
-                        // 创建新的 AABB
-                        aabbTracker.Add(root, new Rect(worldX, worldY, 1, 1));
+                        validAABBs.Add(aabb);
                     }
                 }
             }
 
-            // 由于并查集的合并操作，需要重新整合 AABB
-            // 将所有 AABB 根据最终的根节点重新归并
-            var finalAABBMap = new NativeHashMap<int, Rect>(16, Allocator.Temp);
-
-            foreach (var kvp in aabbTracker)
-            {
-                int originalRoot = kvp.Key;
-                Rect aabb = kvp.Value;
-                
-                // 找到最终的根节点
-                int finalRoot = unionFind.Find(originalRoot);
-                
-                if (finalAABBMap.TryGetValue(finalRoot, out Rect existingRect))
-                {
-                    // 合并 AABB
-                    finalAABBMap[finalRoot] = Rect.Union(existingRect, aabb);
-                }
-                else
-                {
-                    finalAABBMap.Add(finalRoot, aabb);
-                }
-            }
-
-            // 过滤掉不满足最小尺寸的区域
-            var validChunks = new NativeList<Rect>(finalAABBMap.Count, Allocator.Temp);
-            var worldBounds = new Rect(0, 0, worldConfig.width, worldConfig.height);
-
-            foreach (var kvp in finalAABBMap)
-            {
-                var aabb = kvp.Value;
-                
-                // 检查尺寸是否满足最小要求
-                if (aabb.width >= minChunkSize && aabb.height >= minChunkSize)
-                {
-                    // 限制在世界边界内
-                    aabb = aabb.Clamp(worldBounds);
-                    validChunks.Add(aabb);
-                }
-            }
-
-            // 如果分割后只有一个或零个有效区域，不进行分割
-            if (validChunks.Length <= 1)
-            {
-                directions.Dispose();
-                unionFind.Dispose();
-                aabbTracker.Dispose();
-                finalAABBMap.Dispose();
-                validChunks.Dispose();
+            // 如果没有有效区域,直接返回
+            if (validAABBs.Length == 0)
+            {                
+                validAABBs.Dispose();
                 return;
             }
 
-            // 移除原 chunk
-            dirtyChunks.RemoveAtSwapBack(chunkIndex);
-
-            // 添加新的子 chunks
-            for (int i = 0; i < validChunks.Length; i++)
+            // 如果只有一个有效区域，直接替换
+            if (validAABBs.Length == 1)
             {
-                var newChunk = new DirtyChunk(validChunks[i], true);
-                dirtyChunks.Add(newChunk);
+                dirtyChunks[chunkIndex] = new DirtyChunk(validAABBs[0], true);
+                validAABBs.Dispose();
+                return;
             }
 
-            directions.Dispose();
-            unionFind.Dispose();
-            aabbTracker.Dispose();
-            finalAABBMap.Dispose();
-            validChunks.Dispose();
+            // 多个有效区域：移除原 chunk，添加新的子 chunks
+            var srcChunk = dirtyChunks[chunkIndex];
+            dirtyChunks.RemoveAtSwapBack(chunkIndex);
+            foreach (var aabb in validAABBs)
+            {
+                dirtyChunks.Add(new DirtyChunk(aabb, srcChunk.isDirty){notDirtyFrame = srcChunk.notDirtyFrame});
+            }
+
+            validAABBs.Dispose();
+        }
+
+        /// <summary>
+        /// 计算指定矩形区域内有效像素的 AABB（世界坐标）
+        /// </summary>
+        [BurstCompile]
+        private Rect CalculateGridAABB(int minX, int minY, int maxX, int maxY)
+        {
+            int aabbMinX = int.MaxValue;
+            int aabbMinY = int.MaxValue;
+            int aabbMaxX = int.MinValue;
+            int aabbMaxY = int.MinValue;
+
+            bool hasValidPixel = false;
+
+            // 遍历网格内的所有像素
+            for (int y = minY; y < maxY; y++)
+            {
+                for (int x = minX; x < maxX; x++)
+                {
+                    int worldIdx = worldConfig.CoordsToIdx(x, y);
+                    PixelType pixelType = buffer[worldIdx].type;
+
+                    // 如果是有效像素，更新 AABB
+                    if (pixelType != PixelType.Empty && pixelType != PixelType.Disable)
+                    {
+                        hasValidPixel = true;
+                        aabbMinX = math.min(aabbMinX, x);
+                        aabbMinY = math.min(aabbMinY, y);
+                        aabbMaxX = math.max(aabbMaxX, x);
+                        aabbMaxY = math.max(aabbMaxY, y);
+                    }
+                }
+            }
+
+            // 如果没有有效像素，返回空矩形
+            if (!hasValidPixel)
+            {
+                return new Rect(0, 0, 0, 0);
+            }
+
+            // 限制在世界边界内
+            var worldBounds = new Rect(0, 0, worldConfig.width, worldConfig.height);
+            var aabb = new Rect(
+                aabbMinX,
+                aabbMinY,
+                aabbMaxX - aabbMinX + 1,
+                aabbMaxY - aabbMinY + 1
+            );
+
+            return aabb.Clamp(worldBounds);
         }
 
         /// <summary>

@@ -13,31 +13,35 @@ namespace Pixel
     public partial struct SimulationSystem : ISystem, ISystemStartStop
     {
         private SimulationHandler handler;
+        private int stepTimes;
         private WorldConfig worldConfig;
-        private uint frameIdx;        
+        private uint frameIdx;
         private DirtyChunkManager dirtyChunkManager;
+        private Random random;
         bool isInit;
 
         public void OnCreate(ref SystemState state)
         {
             isInit = false;
             frameIdx = (uint)DateTime.Now.Ticks;
+            random = new(frameIdx);
             state.RequireForUpdate<WorldConfig>();
             state.RequireForUpdate<PixelConfigLookup>();
         }
 
+        [BurstCompile]
         public void OnStartRunning(ref SystemState state)
         {
             if (isInit) return;
 
-            var fsw = FallingSandWorld.Instance;
             dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
             worldConfig = SystemAPI.GetSingleton<WorldConfig>();
             handler = new SimulationHandler
             {
                 pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
                 worldConfig = worldConfig,
-                buffer = fsw.PixelBuffer,
+                buffer = SystemAPI.GetSingleton<PixelBuffer>().buffer,
+                random = random
             };
             isInit = true;
         }
@@ -50,19 +54,19 @@ namespace Pixel
             frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
             handler.frameIdx = frameIdx;
 
-            dirtyChunkManager.Clear();            
+            //Job可能会扩展Chunk的边界，并且在Job执行前可能会添加重叠的Chunk，如果在Job执行后才同步则可能产生数据竞争            
+            //因此需要在job执行之前Reset，确保处理的dirtyChunks
+            dirtyChunkManager.Reset();
+
             var dirtyChunks = dirtyChunkManager.GetDirtyChunks();
             var job = new UpdateDirtyChunkJob()
             {
-                dirtyChunks = dirtyChunks,
-                random = new(frameIdx),
+                dirtyChunks = dirtyChunks,                
                 handler = handler
             };
-
+            
             state.Dependency = job.Schedule(dirtyChunks.Length, 1, state.Dependency);
-            state.CompleteDependency();
-            dirtyChunkManager.MergeChunk();
-            dirtyChunkManager.SplitChunk();
+            state.CompleteDependency();                                         
         }
     }
 
@@ -70,8 +74,7 @@ namespace Pixel
     public struct UpdateDirtyChunkJob : IJobParallelFor
     {
         [NativeDisableParallelForRestriction] public NativeList<DirtyChunk> dirtyChunks;
-        [NativeDisableParallelForRestriction] public SimulationHandler handler;
-        [ReadOnly] public Random random;
+        [NativeDisableParallelForRestriction] public SimulationHandler handler;        
 
         [BurstCompile]
         public void Execute(int index)
@@ -83,17 +86,27 @@ namespace Pixel
             bool isLeftExpand = false;
             bool isRightExpand = false;
             int2 minXY = new(dirtyChunk.rect.x, dirtyChunk.rect.y);
-            int2 maxXY = new(minXY.x + dirtyChunk.rect.width, minXY.y + dirtyChunk.rect.height);
+            int2 maxXY = new(minXY.x + dirtyChunk.rect.width, minXY.y + dirtyChunk.rect.height);            
             for (int i = minXY.y; i < maxXY.y; i++)
             {
-                for (int j = minXY.x; j < maxXY.x; j++)
+                int j, increment;
+                if (handler.random.NextBool() || true)
+                {
+                    j = minXY.x;
+                    increment = 1;
+                }
+                else
+                {
+                    j = maxXY.x;
+                    increment = -1;
+                }
+                for (; j < maxXY.x && j>=0; j +=increment)
                 {
                     int idx = handler.worldConfig.CoordsToIdx(j, i);
                     PixelData cur = handler.buffer[idx];
-                    if (handler.frameIdx == cur.frameIdx) continue;                    
-
-                    random.InitState(handler.frameIdx + math.hash(new int2(j, i)));
-                    handler.HandleMove(j, i, random);
+                    if (handler.frameIdx == cur.frameIdx) continue;
+                    
+                    handler.HandleMove(j, i);
                     if (handler.buffer[idx].frameIdx == handler.frameIdx)
                     {
                         if (!hasChange)
@@ -122,7 +135,7 @@ namespace Pixel
                     }
                 }
             }
-
+            
             dirtyChunk.rect = dirtyChunk.rect.Clamp(new Rect(0, 0, handler.worldConfig.width, handler.worldConfig.height));
             bool isDirty = hasChange || isUpExpand || isDownExpand || isRightExpand || isLeftExpand;
             if (!isDirty)

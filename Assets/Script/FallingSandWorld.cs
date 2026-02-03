@@ -5,20 +5,28 @@ using Unity.Collections;
 
 public class FallingSandWorld : MonoBehaviour
 {
+    [Header("基础")]
+    [SerializeField] private int frame=60;
+
     [Header("世界设置")]
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
+    [SerializeField] private int stepTimes = 2;
     [SerializeField] private PixelSet pixelSet;
+    
+    [Header("脏区块设置")]
+    [SerializeField] private int maxChunkSize = 128;
+    [SerializeField] private int chunkBorder = 1;
+    [SerializeField] private int gridSize = 64;
     private PixelConfigLookup pixelLookup;
     private WorldConfig worldConfig;
-    //NativeArray是值类型，修改时需要重新赋值，所以放弃使用二维数组
-    private NativeArray<PixelData> pixelBuffer;
+    private PixelBuffer pixelBuffer;
+    
     private DirtyChunkManager dirtyChunkManager;
     public static FallingSandWorld Instance { get; private set; }
-
+    
     public DirtyChunkManager DirtyChunkManager => dirtyChunkManager;
-    public WorldConfig WorldConfig => worldConfig;    
-    public NativeArray<PixelData> PixelBuffer => pixelBuffer;
+    public WorldConfig WorldConfig => worldConfig;        
 
     void Awake()
     {
@@ -34,7 +42,8 @@ public class FallingSandWorld : MonoBehaviour
     }
 
     void Start()
-    {                
+    {
+        Application.targetFrameRate = frame;
     }
 
     void OnDestroy()
@@ -46,9 +55,12 @@ public class FallingSandWorld : MonoBehaviour
 
     private void InitWorld()
     {
-        pixelBuffer = new(worldHeight * worldWidth, Allocator.Persistent);
-        for (int i = 0; i < pixelBuffer.Length; i++)
-            pixelBuffer[i] = new() { type = PixelType.Empty, frameIdx = 0 };
+        pixelBuffer = new()
+        {
+            buffer= new(worldHeight * worldWidth, Allocator.Persistent)
+        };
+        for (int i = 0; i < pixelBuffer.buffer.Length; i++)
+            pixelBuffer.buffer[i] = new() { type = PixelType.Empty, frameIdx = 0 };
 
         CreateWorldConfig();
         CreateDirtyChunkManager();
@@ -58,7 +70,7 @@ public class FallingSandWorld : MonoBehaviour
     //需在worldConfig创建之后调用
     private void CreateDirtyChunkManager()
     {
-        dirtyChunkManager = new DirtyChunkManager(Allocator.Persistent, pixelBuffer, worldConfig);
+        dirtyChunkManager = new DirtyChunkManager(Allocator.Persistent, pixelBuffer.buffer, worldConfig, maxChunkSize, chunkBorder, gridSize);
         dirtyChunkManager.AddChunk(new(0, 0, worldConfig.width, worldConfig.height));
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         em.CreateSingleton(dirtyChunkManager);

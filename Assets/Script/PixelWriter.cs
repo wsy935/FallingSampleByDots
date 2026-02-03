@@ -25,7 +25,8 @@ public class PixelWriter : MonoBehaviour
         mainCamera = Camera.main;
         fsw = FallingSandWorld.Instance;
         dirtyChunkManager = fsw.DirtyChunkManager;
-        buffer = fsw.PixelBuffer;
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        buffer = em.CreateEntityQuery(typeof(PixelBuffer)).GetSingleton<PixelBuffer>().buffer;
     }
 
     private void Update()
@@ -52,6 +53,7 @@ public class PixelWriter : MonoBehaviour
         if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
         if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
         if (keyboard[Key.Digit3].isPressed) pixelType = PixelType.Wall;
+        if (keyboard[Key.Digit4].isPressed) pixelType = PixelType.Empty;
 
         // 鼠标滚轮调整笔刷大小
         float scroll = mouse.scroll.value.y;
