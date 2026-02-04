@@ -13,11 +13,11 @@ namespace Pixel
     [UpdateAfter(typeof(SimulationSystem))]
     public partial class RenderSystem : SystemBase
     {
+        Texture2D tex;
         WorldConfig worldConfig;
         PixelConfigLookup pixelConfigLookup;
-        NativeArray<PixelData> buffer;
+        PixelBuffer pixelBuffer;
         DirtyChunkManager dirtyChunkManager;
-        Texture2D tex;
         bool isInit;
 
         protected override void OnCreate()
@@ -29,26 +29,25 @@ namespace Pixel
         {
             if (isInit) return;
             tex = FallingSandRender.Instance.Tex;
-            buffer = SystemAPI.GetSingleton<PixelBuffer>().buffer;
-            dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
-            pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>();
-            worldConfig = SystemAPI.GetSingleton<WorldConfig>();
             isInit = true;
+            dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
+            worldConfig = SystemAPI.GetSingleton<WorldConfig>();
+            pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>();
+            pixelBuffer = SystemAPI.GetSingleton<PixelBuffer>();
         }
 
         protected override void OnUpdate()
         {
-            var renderBuffer = tex.GetRawTextureData<Color32>();
-            var dirtyChunks = dirtyChunkManager.GetDirtyChunks();
+            var renderBuffer = tex.GetRawTextureData<Color32>();                       
             var job = new ExtractPixelJob()
             {
-                dirtyChunks = dirtyChunks,
+                dirtyChunks = dirtyChunkManager.GetDirtyChunks(),
                 renderBuffer = renderBuffer,
                 pixelConfigLookup = pixelConfigLookup,
-                buffer = buffer,
+                buffer = pixelBuffer.buffer,
                 worldConfig = worldConfig
             };
-            Dependency = job.Schedule(dirtyChunks.Length, 1, Dependency);
+            Dependency = job.Schedule(Dependency);
             CompleteDependency();
 
             tex.Apply(false);
@@ -56,7 +55,7 @@ namespace Pixel
     }
 
     [BurstCompile]
-    public struct ExtractPixelJob : IJobParallelFor
+    public struct ExtractPixelJob : IJob
     {
         [NativeDisableParallelForRestriction] public NativeList<DirtyChunk> dirtyChunks;
         [NativeDisableParallelForRestriction] public NativeArray<Color32> renderBuffer;
@@ -65,18 +64,20 @@ namespace Pixel
         [ReadOnly] public WorldConfig worldConfig;
 
         [BurstCompile]
-        public void Execute(int index)
+        public void Execute()
         {
-            var dirtyChunk = dirtyChunks[index];
-            int2 minXY = new(dirtyChunk.rect.x, dirtyChunk.rect.y);
-            int2 maxXY = new(minXY.x + dirtyChunk.rect.width, minXY.y + dirtyChunk.rect.height);
-            for (int i = minXY.y; i < maxXY.y; i++)
+            for (int k = 0; k < dirtyChunks.Length; k++)
             {
-                for (int j = minXY.x; j < maxXY.x; j++)
+                var dirtyChunk = dirtyChunks[k];
+                var rect = dirtyChunk.rect;                
+                for (int i = rect.y; i < rect.MaxY; i++)
                 {
-                    int idx = worldConfig.CoordsToIdx(j, i);
-                    var config = pixelConfigLookup.GetConfig(buffer[idx].type);
-                    renderBuffer[idx] = config.color;
+                    for (int j = rect.x; j < rect.MaxX; j++)
+                    {
+                        int idx = worldConfig.CoordsToIdx(j, i);
+                        var config = pixelConfigLookup.GetConfig(buffer[idx].type);
+                        renderBuffer[idx] = config.color;
+                    }
                 }
             }
         }

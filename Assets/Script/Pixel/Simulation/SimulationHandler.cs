@@ -41,7 +41,7 @@ namespace Pixel
 
         /// <summary>
         /// 尝试移动or交换像素,op控制比较方式true，density大于才交换；false,小于才交换 
-        /// </summary>                
+        /// </summary>
         [BurstCompile]
         private bool TryMove(int srcX, int srcY, int tarX, int tarY, bool op = true)
         {

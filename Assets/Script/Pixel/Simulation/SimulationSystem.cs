@@ -7,17 +7,20 @@ using UnityEngine;
 using System;
 
 using Random = Unity.Mathematics.Random;
+using NUnit.Framework;
 namespace Pixel
 {
     [BurstCompile]
     public partial struct SimulationSystem : ISystem, ISystemStartStop
     {
-        private SimulationHandler handler;
-        private int stepTimes;
-        private WorldConfig worldConfig;
         private uint frameIdx;
-        private DirtyChunkManager dirtyChunkManager;
         private Random random;
+        private BitMap bitMap;
+        private WorldConfig worldConfig;
+        private PixelConfigLookup pixelConfigLookup;
+        private PixelBuffer pixelBuffer;
+        private DirtyChunkManager dirtyChunkManager;
+        private SimulationHandler handler;
         bool isInit;
 
         public void OnCreate(ref SystemState state)
@@ -29,115 +32,142 @@ namespace Pixel
             state.RequireForUpdate<PixelConfigLookup>();
         }
 
-        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
+        {
+            bitMap.Dispose();
+        }
+
         public void OnStartRunning(ref SystemState state)
         {
             if (isInit) return;
-
-            dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
+            isInit = true;
+            pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>();
             worldConfig = SystemAPI.GetSingleton<WorldConfig>();
+            pixelBuffer = SystemAPI.GetSingleton<PixelBuffer>();
+            dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
             handler = new SimulationHandler
             {
-                pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
+                pixelConfigLookup = pixelConfigLookup,
                 worldConfig = worldConfig,
-                buffer = SystemAPI.GetSingleton<PixelBuffer>().buffer,
+                buffer = pixelBuffer.buffer,
                 random = random
             };
-            isInit = true;
+            bitMap = new(worldConfig.width, worldConfig.height, Allocator.Persistent);
         }
 
         public void OnStopRunning(ref SystemState state) { }
-
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
-            handler.frameIdx = frameIdx;
-
-            //Job可能会扩展Chunk的边界，并且在Job执行前可能会添加重叠的Chunk，如果在Job执行后才同步则可能产生数据竞争            
-            //因此需要在job执行之前Reset，确保处理的dirtyChunks
             dirtyChunkManager.Reset();
-
             var dirtyChunks = dirtyChunkManager.GetDirtyChunks();
-            var job = new UpdateDirtyChunkJob()
+            for (int i = 0; i < handler.worldConfig.stepTimes; i++)
             {
-                dirtyChunks = dirtyChunks,                
-                handler = handler
-            };
-            
-            state.Dependency = job.Schedule(dirtyChunks.Length, 1, state.Dependency);
-            state.CompleteDependency();                                         
+                frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
+                handler.frameIdx = frameIdx;
+                bitMap.Clear();                
+                for (int j = 0; j < dirtyChunks.Length; j++)
+                {
+                    HandleDirtyChunk(ref dirtyChunks.ElementAt(j));
+                }
+            }
         }
-    }
 
-    [BurstCompile]
-    public struct UpdateDirtyChunkJob : IJobParallelFor
-    {
-        [NativeDisableParallelForRestriction] public NativeList<DirtyChunk> dirtyChunks;
-        [NativeDisableParallelForRestriction] public SimulationHandler handler;        
-
-        [BurstCompile]
-        public void Execute(int index)
-        {
-            var dirtyChunk = dirtyChunks[index];
+        public void HandleDirtyChunk(ref DirtyChunk dirtyChunk)
+        {            
             bool hasChange = false;
             bool isUpExpand = false;
             bool isDownExpand = false;
             bool isLeftExpand = false;
             bool isRightExpand = false;
-            int2 minXY = new(dirtyChunk.rect.x, dirtyChunk.rect.y);
-            int2 maxXY = new(minXY.x + dirtyChunk.rect.width, minXY.y + dirtyChunk.rect.height);            
-            for (int i = minXY.y; i < maxXY.y; i++)
+
+            //处理当前块
+            Rect rect = dirtyChunk.rect;
+            for (int i = rect.y; i < rect.MaxY; i++)
             {
                 int j, increment;
-                if (handler.random.NextBool() || true)
+                if (handler.random.NextBool())
                 {
-                    j = minXY.x;
+                    j = rect.x;
                     increment = 1;
                 }
                 else
                 {
-                    j = maxXY.x;
+                    j = rect.MaxX - 1;
                     increment = -1;
                 }
-                for (; j < maxXY.x && j>=0; j +=increment)
+                for (; j < rect.MaxX && j >= rect.x; j += increment)
                 {
-                    int idx = handler.worldConfig.CoordsToIdx(j, i);
-                    PixelData cur = handler.buffer[idx];
-                    if (handler.frameIdx == cur.frameIdx) continue;
-                    
-                    handler.HandleMove(j, i);
-                    if (handler.buffer[idx].frameIdx == handler.frameIdx)
+                    if (TrySimulate(j, i))
                     {
-                        if (!hasChange)
-                            hasChange = true;
-                        if (j == minXY.x && !isLeftExpand)
-                        {
-                            dirtyChunk.rect.x -= 1;
-                            isLeftExpand = true;
-                        }
-                        else if (j == maxXY.x-1 && !isRightExpand)
-                        {
-                            dirtyChunk.rect.width += 1;
-                            isRightExpand = true;
-                        }
-
-                        if (i == minXY.y && !isDownExpand)
-                        {
-                            dirtyChunk.rect.y -= 1;
-                            isDownExpand = true;
-                        }
-                        else if (i == maxXY.y-1 && !isUpExpand)
-                        {
-                            dirtyChunk.rect.height += 1;
-                            isUpExpand = true;
-                        }
+                        hasChange = true;
+                        CheckRectExpand(j, i, ref dirtyChunk.rect, ref isLeftExpand, ref isRightExpand, ref isDownExpand, ref isUpExpand);
                     }
                 }
             }
+            var worldRect = new Rect(0, 0, worldConfig.width, worldConfig.height);
+            dirtyChunk.rect = dirtyChunk.rect.Clamp(worldRect);
+
+            //处理扩展块
+            bool hasExpand = isUpExpand || isDownExpand || isRightExpand || isLeftExpand;
+            while (hasExpand )
+            {
+                bool curLeft, curRight, curUp, curDown;
+                curLeft = curDown = curRight = curUp = false;                
+                Rect curRect = dirtyChunk.rect;
+                if (isUpExpand)
+                {
+                    int y = curRect.MaxY - 1;
+                    for (int x = curRect.x; x < curRect.MaxX; x++)
+                    {
+                        if (TrySimulate(x, y))
+                        {
+                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                        }
+                    }
+                }
+                if (isDownExpand)
+                {
+                    int y = curRect.y;
+                    for (int x = curRect.x; x < curRect.MaxX; x++)
+                    {
+                        if (TrySimulate(x, y))
+                        {
+                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                        }
+                    }
+                }
+                if (isLeftExpand)
+                {
+                    int x =curRect.x;
+                    for (int y = curRect.y; y < curRect.MaxY; y++)
+                    {
+                        if (TrySimulate(x, y))
+                        {
+                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                        }
+                    }
+                }
+                if (isRightExpand)
+                {
+                    int x = curRect.MaxX-1;
+                    for (int y = curRect.y; y < curRect.MaxY; y++)
+                    {
+                        if (TrySimulate(x, y))
+                        {
+                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                        }
+                    }
+                }
+                isUpExpand = curUp;
+                isRightExpand = curRight;
+                isLeftExpand = curLeft;
+                isDownExpand = curDown;
+                hasExpand = isUpExpand || isDownExpand || isRightExpand || isLeftExpand;
+                dirtyChunk.rect = dirtyChunk.rect.Clamp(worldRect);
+            }
             
-            dirtyChunk.rect = dirtyChunk.rect.Clamp(new Rect(0, 0, handler.worldConfig.width, handler.worldConfig.height));
-            bool isDirty = hasChange || isUpExpand || isDownExpand || isRightExpand || isLeftExpand;
+            bool isDirty = hasChange;
             if (!isDirty)
             {
                 dirtyChunk.notDirtyFrame++;
@@ -146,8 +176,50 @@ namespace Pixel
             {
                 dirtyChunk.notDirtyFrame = 0;
             }
-            dirtyChunk.isDirty = isDirty;
-            dirtyChunks[index] = dirtyChunk;
+            dirtyChunk.isDirty = isDirty;            
+        }
+
+        /// <summary>
+        /// 返回模拟的结果，如果像素在模拟之后被设置返回true，否则为false
+        /// </summary>
+        [BurstCompile]
+        private bool TrySimulate(int x, int y)
+        {
+            if (bitMap.IsMark(x, y)) return false;
+            bitMap.Mark(x, y);
+            int idx = worldConfig.CoordsToIdx(x, y);
+            if (handler.buffer[idx].frameIdx == handler.frameIdx) return false;
+            handler.HandleMove(x, y);            
+            return handler.buffer[idx].frameIdx == handler.frameIdx;
+        }
+
+        [BurstCompile]
+        private void CheckRectExpand(int x, int y, ref Rect rect, ref bool isLeftExpand,
+            ref bool isRightExpand, ref bool isDownExpand, ref bool isUpExpand)
+        {
+            if (x == rect.x && !isLeftExpand)
+            {
+                rect.x -= 1;
+                rect.width += 1;
+                isLeftExpand = true;
+            }        
+            else if (x == rect.MaxX - 1 && !isRightExpand)
+            {
+                rect.width += 1;
+                isRightExpand = true;
+            }
+
+            if (y == rect.y && !isDownExpand)
+            {
+                rect.y -= 1;
+                rect.height += 1;
+                isDownExpand = true;
+            }
+            else if (y == rect.MaxY - 1 && !isUpExpand)
+            {
+                rect.height += 1;
+                isUpExpand = true;
+            }
         }
     }
 }

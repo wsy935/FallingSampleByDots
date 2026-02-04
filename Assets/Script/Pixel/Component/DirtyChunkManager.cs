@@ -22,16 +22,18 @@ namespace Pixel
         private int chunkBorder;
         //固定网格大小，用于分割大块
         private int gridSize;
+        private int notDirtyFrameTimes;
 
-        public DirtyChunkManager(Allocator allocator, NativeArray<PixelData> buffer, WorldConfig worldConfig, int maxChunkSize = 128, int chunkBorder = 1, int gridSize = 64)
+        public DirtyChunkManager(Allocator allocator, NativeArray<PixelData> buffer, WorldConfig worldConfig,int notDirtyFrameTimes ,int maxChunkSize = 128, int chunkBorder = 1, int gridSize = 64)
         {
             dirtyChunks = new(allocator);
-
+            
             this.buffer = buffer;
             this.worldConfig = worldConfig;
             this.maxChunkSize = maxChunkSize;
             this.chunkBorder = chunkBorder;
             this.gridSize = gridSize;
+            this.notDirtyFrameTimes = notDirtyFrameTimes;
         }
 
         public readonly NativeList<DirtyChunk> GetDirtyChunks() => dirtyChunks;
@@ -42,7 +44,7 @@ namespace Pixel
         }
 
         /// <summary>
-        /// 整理当前脏区块
+        /// 整理当前脏区块,并且按照y值排序
         /// </summary>
         public void Reset()
         {
@@ -59,7 +61,7 @@ namespace Pixel
         {
             for (int i = dirtyChunks.Length-1; i >=0; i--)
             {
-                if (!dirtyChunks[i].isDirty && dirtyChunks[i].notDirtyFrame > 1)
+                if (!dirtyChunks[i].isDirty && dirtyChunks[i].notDirtyFrame > notDirtyFrameTimes *2)
                 {
                     dirtyChunks.RemoveAtSwapBack(i);
                 }

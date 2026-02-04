@@ -24,7 +24,8 @@ public class FallingSandWorld : MonoBehaviour
     
     private DirtyChunkManager dirtyChunkManager;
     public static FallingSandWorld Instance { get; private set; }
-    
+
+    public PixelBuffer PixelBuffer => pixelBuffer;
     public DirtyChunkManager DirtyChunkManager => dirtyChunkManager;
     public WorldConfig WorldConfig => worldConfig;        
 
@@ -61,6 +62,7 @@ public class FallingSandWorld : MonoBehaviour
         };
         for (int i = 0; i < pixelBuffer.buffer.Length; i++)
             pixelBuffer.buffer[i] = new() { type = PixelType.Empty, frameIdx = 0 };
+        World.DefaultGameObjectInjectionWorld.EntityManager.CreateSingleton(pixelBuffer);
 
         CreateWorldConfig();
         CreateDirtyChunkManager();
@@ -70,7 +72,7 @@ public class FallingSandWorld : MonoBehaviour
     //需在worldConfig创建之后调用
     private void CreateDirtyChunkManager()
     {
-        dirtyChunkManager = new DirtyChunkManager(Allocator.Persistent, pixelBuffer.buffer, worldConfig, maxChunkSize, chunkBorder, gridSize);
+        dirtyChunkManager = new DirtyChunkManager(Allocator.Persistent, pixelBuffer.buffer, worldConfig, stepTimes,maxChunkSize, chunkBorder, gridSize);
         dirtyChunkManager.AddChunk(new(0, 0, worldConfig.width, worldConfig.height));
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         em.CreateSingleton(dirtyChunkManager);
@@ -95,7 +97,8 @@ public class FallingSandWorld : MonoBehaviour
         worldConfig = new()
         {
             width = worldWidth,
-            height = worldHeight
+            height = worldHeight,
+            stepTimes = stepTimes
         };
         em.CreateSingleton(worldConfig);
     }

@@ -3,6 +3,7 @@ using Pixel;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Rect = Pixel.Rect;
@@ -25,8 +26,7 @@ public class PixelWriter : MonoBehaviour
         mainCamera = Camera.main;
         fsw = FallingSandWorld.Instance;
         dirtyChunkManager = fsw.DirtyChunkManager;
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        buffer = em.CreateEntityQuery(typeof(PixelBuffer)).GetSingleton<PixelBuffer>().buffer;
+        buffer = fsw.PixelBuffer.buffer;
     }
 
     private void Update()
@@ -108,10 +108,11 @@ public class PixelWriter : MonoBehaviour
         int centerY = (int)worldPos.y;
 
         // 使用圆形笔刷
-        int size = brushSize * 2;
+        int size = brushSize * 2+1;
         Rect rect = new(centerX - brushSize, centerY - brushSize, size, size);
         rect = rect.Clamp(new(0, 0, fsw.WorldConfig.width, fsw.WorldConfig.height));
-        fsw.DirtyChunkManager.AddChunk(new(rect));
+        if(rect.width > 0 && rect.height>0)
+            fsw.DirtyChunkManager.AddChunk(new(rect));
         for (int dy = -brushSize; dy <= brushSize; dy++)
         {
             for (int dx = -brushSize; dx <= brushSize; dx++)
@@ -132,6 +133,7 @@ public class PixelWriter : MonoBehaviour
                 };
             }
         }        
+
     }
 
     private void OnGUI()

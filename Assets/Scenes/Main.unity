@@ -166,8 +166,9 @@ MonoBehaviour:
   frame: 60
   worldWidth: 512
   worldHeight: 512
+  stepTimes: 2
   pixelSet: {fileID: 11400000, guid: 049286279ce69144c86e08b77f9cd514, type: 2}
-  maxChunkSize: 256
+  maxChunkSize: 1024
   chunkBorder: 2
   gridSize: 64
 --- !u!1 &855104776
