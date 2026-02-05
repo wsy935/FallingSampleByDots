@@ -47,8 +47,9 @@ public class PixelWriter : MonoBehaviour
             WritePixel(worldPos, PixelType.Empty);
         }
 
-        if (keyboard[Key.F].isPressed) FillAll();        
-
+        if (keyboard[Key.F].isPressed) FillAll();
+        if (keyboard[Key.A].isPressed) Add();
+        if (keyboard[Key.S].isPressed) AddOne();
         // 数字键切换像素类型        
         if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
         if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
@@ -74,10 +75,44 @@ public class PixelWriter : MonoBehaviour
         // 转换为像素坐标（假设sprite的pivot在中心）
         float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
         var worldConfig = fsw.WorldConfig;
-        int pixelX = Mathf.FloorToInt(worldPos.x * pixelPerUnit + (worldConfig.width/2));
-        int pixelY = Mathf.FloorToInt(worldPos.y * pixelPerUnit + (worldConfig.height/2));
+        int pixelX = Mathf.FloorToInt(worldPos.x * pixelPerUnit + (worldConfig.width / 2));
+        int pixelY = Mathf.FloorToInt(worldPos.y * pixelPerUnit + (worldConfig.height / 2));
 
         return new Vector2(pixelX, pixelY);
+    }
+
+    private void AddOne()
+    {
+        var worldConfig = fsw.WorldConfig;
+        int startX = worldConfig.width >> 1;
+        int startY = worldConfig.height >> 1;
+        int idx = worldConfig.CoordsToIdx(startX, startY);
+        buffer[idx] = new()
+        {
+            type = pixelType,
+            frameIdx = buffer[idx].frameIdx
+        };
+        dirtyChunkManager.AddChunk(new(startX, startY, 1, 1));
+    }
+
+    private void Add()
+    {
+        var worldConfig = fsw.WorldConfig;
+        int startX = worldConfig.width >> 1;
+        int startY = worldConfig.height >> 1;
+        for (int i = 0; i < brushSize; i++)
+        {
+            for (int j = 0; j < brushSize; j++)
+            {
+                int idx = worldConfig.CoordsToIdx(j + startX, i + startY);
+                buffer[idx] = new()
+                {
+                    type = pixelType,
+                    frameIdx = buffer[idx].frameIdx
+                };
+            }
+        }
+        dirtyChunkManager.AddChunk(new(startX, startY, brushSize, brushSize));
     }
 
     private void FillAll()
@@ -108,10 +143,10 @@ public class PixelWriter : MonoBehaviour
         int centerY = (int)worldPos.y;
 
         // 使用圆形笔刷
-        int size = brushSize * 2+1;
+        int size = brushSize * 2 + 1;
         Rect rect = new(centerX - brushSize, centerY - brushSize, size, size);
         rect = rect.Clamp(new(0, 0, fsw.WorldConfig.width, fsw.WorldConfig.height));
-        if(rect.width > 0 && rect.height>0)
+        if (rect.width > 0 && rect.height > 0)
             fsw.DirtyChunkManager.AddChunk(new(rect));
         for (int dy = -brushSize; dy <= brushSize; dy++)
         {
@@ -132,7 +167,7 @@ public class PixelWriter : MonoBehaviour
                     frameIdx = buffer[idx].frameIdx
                 };
             }
-        }        
+        }
 
     }
 

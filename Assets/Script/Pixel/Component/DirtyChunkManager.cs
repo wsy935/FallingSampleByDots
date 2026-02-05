@@ -56,12 +56,11 @@ namespace Pixel
         /// <summary>
         /// 移除非脏的区块
         /// </summary>
-        [BurstCompile]
         public void Clear()
         {
             for (int i = dirtyChunks.Length-1; i >=0; i--)
             {
-                if (!dirtyChunks[i].isDirty && dirtyChunks[i].notDirtyFrame > notDirtyFrameTimes *2)
+                if (!dirtyChunks[i].isDirty && dirtyChunks[i].notDirtyFrame > notDirtyFrameTimes)
                 {
                     dirtyChunks.RemoveAtSwapBack(i);
                 }
@@ -70,8 +69,7 @@ namespace Pixel
 
         /// <summary>
         /// 清空所有脏区块
-        /// </summary>
-        [BurstCompile]
+        /// </summary>        
         public void ForceClear()
         {
             dirtyChunks.Clear();
@@ -79,8 +77,7 @@ namespace Pixel
 
         /// <summary>
         /// 合并相邻的脏区块
-        /// </summary>
-        [BurstCompile]
+        /// </summary>        
         public void MergeChunk()
         {
             if (dirtyChunks.Length < 2) return;
@@ -268,8 +265,7 @@ namespace Pixel
 
         /// <summary>
         /// 判断两个区块是否相交（考虑 border）
-        /// </summary>
-        [BurstCompile]
+        /// </summary>        
         public bool IsIntersect(in DirtyChunk chunk1, in DirtyChunk chunk2)
         {
             return chunk1.rect.Intersects(chunk2.rect, chunkBorder);

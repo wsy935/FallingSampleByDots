@@ -2,8 +2,6 @@ using Unity.Entities;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
-using Unity.Jobs;
-using UnityEngine;
 using System;
 
 using Random = Unity.Mathematics.Random;
@@ -56,6 +54,7 @@ namespace Pixel
         }
 
         public void OnStopRunning(ref SystemState state) { }
+
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
@@ -65,7 +64,7 @@ namespace Pixel
             {
                 frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
                 handler.frameIdx = frameIdx;
-                bitMap.Clear();                
+                bitMap.Clear();
                 for (int j = 0; j < dirtyChunks.Length; j++)
                 {
                     HandleDirtyChunk(ref dirtyChunks.ElementAt(j));
@@ -73,13 +72,11 @@ namespace Pixel
             }
         }
 
+        [BurstCompile]
         public void HandleDirtyChunk(ref DirtyChunk dirtyChunk)
-        {            
+        {
             bool hasChange = false;
-            bool isUpExpand = false;
-            bool isDownExpand = false;
-            bool isLeftExpand = false;
-            bool isRightExpand = false;
+            int4 expandDis = new();//左右上下
 
             //处理当前块
             Rect rect = dirtyChunk.rect;
@@ -101,72 +98,83 @@ namespace Pixel
                     if (TrySimulate(j, i))
                     {
                         hasChange = true;
-                        CheckRectExpand(j, i, ref dirtyChunk.rect, ref isLeftExpand, ref isRightExpand, ref isDownExpand, ref isUpExpand);
+                        CheckRectExpand(j, i, in rect, ref expandDis);
                     }
                 }
             }
             var worldRect = new Rect(0, 0, worldConfig.width, worldConfig.height);
-            dirtyChunk.rect = dirtyChunk.rect.Clamp(worldRect);
+            rect.Expand(expandDis);
+            dirtyChunk.rect = rect.Clamp(worldRect);
 
             //处理扩展块
-            bool hasExpand = isUpExpand || isDownExpand || isRightExpand || isLeftExpand;
-            while (hasExpand )
+            bool hasExpand = expandDis.w != 0 || expandDis.x != 0 || expandDis.y != 0 || expandDis.z != 0;
+            while (hasExpand)
             {
-                bool curLeft, curRight, curUp, curDown;
-                curLeft = curDown = curRight = curUp = false;                
+                int4 curExpandDis = new();
                 Rect curRect = dirtyChunk.rect;
-                if (isUpExpand)
+                if (expandDis.w != 0)
                 {
-                    int y = curRect.MaxY - 1;
-                    for (int x = curRect.x; x < curRect.MaxX; x++)
+                    for (int i = curRect.y; i < curRect.MaxY; i++)
                     {
-                        if (TrySimulate(x, y))
+                        for (int j = 1; j < expandDis.w; j++)
                         {
-                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                            int curX = curRect.x - j;
+                            if (TrySimulate(curX, i))
+                            {
+                                CheckRectExpand(curX, i, in curRect, ref curExpandDis);
+                            }
                         }
                     }
                 }
-                if (isDownExpand)
+                if (expandDis.x != 0)
                 {
-                    int y = curRect.y;
-                    for (int x = curRect.x; x < curRect.MaxX; x++)
+                    for (int i = curRect.y; i < curRect.MaxY; i++)
                     {
-                        if (TrySimulate(x, y))
+                        for (int j = 1; j < expandDis.w; j++)
                         {
-                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                            int curX = curRect.MaxX - 1 + j;
+                            if (TrySimulate(curX, i))
+                            {
+                                CheckRectExpand(curX, i, in curRect, ref curExpandDis);
+                            }
                         }
                     }
                 }
-                if (isLeftExpand)
+
+                if (expandDis.y != 0)
                 {
-                    int x =curRect.x;
-                    for (int y = curRect.y; y < curRect.MaxY; y++)
+                    for (int i = 1; i < expandDis.y; i++)
                     {
-                        if (TrySimulate(x, y))
+                        for (int j = curRect.x; j < curRect.MaxX; j++)
                         {
-                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                            int curY = curRect.MaxY - 1 + i;
+                            if (TrySimulate(j, curY))
+                            {
+                                CheckRectExpand(j, curY, in curRect, ref curExpandDis);
+                            }
                         }
                     }
                 }
-                if (isRightExpand)
+                if (expandDis.z != 0)
                 {
-                    int x = curRect.MaxX-1;
-                    for (int y = curRect.y; y < curRect.MaxY; y++)
+                    for (int i = 1; i < expandDis.y; i++)
                     {
-                        if (TrySimulate(x, y))
+                        for (int j = curRect.x; j < curRect.MaxX; j++)
                         {
-                            CheckRectExpand(x, y, ref dirtyChunk.rect, ref curLeft, ref curRight, ref curDown, ref curUp);
+                            int curY = curRect.y - i;
+                            if (TrySimulate(j, curY))
+                            {
+                                CheckRectExpand(j, curY, in curRect, ref curExpandDis);
+                            }
                         }
                     }
                 }
-                isUpExpand = curUp;
-                isRightExpand = curRight;
-                isLeftExpand = curLeft;
-                isDownExpand = curDown;
-                hasExpand = isUpExpand || isDownExpand || isRightExpand || isLeftExpand;
-                dirtyChunk.rect = dirtyChunk.rect.Clamp(worldRect);
+
+                hasExpand = expandDis.w != 0 || expandDis.x != 0 || expandDis.y != 0 || expandDis.z != 0;
+                curRect.Expand(curExpandDis);
+                dirtyChunk.rect = curRect.Clamp(worldRect);
             }
-            
+
             bool isDirty = hasChange;
             if (!isDirty)
             {
@@ -176,49 +184,42 @@ namespace Pixel
             {
                 dirtyChunk.notDirtyFrame = 0;
             }
-            dirtyChunk.isDirty = isDirty;            
+            dirtyChunk.isDirty = isDirty;
         }
 
         /// <summary>
         /// 返回模拟的结果，如果像素在模拟之后被设置返回true，否则为false
-        /// </summary>
-        [BurstCompile]
+        /// </summary>        
         private bool TrySimulate(int x, int y)
         {
             if (bitMap.IsMark(x, y)) return false;
             bitMap.Mark(x, y);
             int idx = worldConfig.CoordsToIdx(x, y);
             if (handler.buffer[idx].frameIdx == handler.frameIdx) return false;
-            handler.HandleMove(x, y);            
+            handler.HandleMove(x, y);
             return handler.buffer[idx].frameIdx == handler.frameIdx;
         }
 
-        [BurstCompile]
-        private void CheckRectExpand(int x, int y, ref Rect rect, ref bool isLeftExpand,
-            ref bool isRightExpand, ref bool isDownExpand, ref bool isUpExpand)
+        private void CheckRectExpand(int x, int y, in Rect rect, ref int4 expandDis)
         {
-            if (x == rect.x && !isLeftExpand)
+            int idx = worldConfig.CoordsToIdx(x, y);
+            var config = pixelConfigLookup.GetConfig(handler.buffer[idx].type);
+            if (x == rect.x && expandDis.w != 0)
             {
-                rect.x -= 1;
-                rect.width += 1;
-                isLeftExpand = true;
-            }        
-            else if (x == rect.MaxX - 1 && !isRightExpand)
+                expandDis.w = math.max(expandDis.w, config.speed.x + 1);
+            }
+            else if (x == rect.MaxX - 1 && expandDis.x != 0)
             {
-                rect.width += 1;
-                isRightExpand = true;
+                expandDis.x = math.max(expandDis.x, config.speed.x + 1);
             }
 
-            if (y == rect.y && !isDownExpand)
+            if (y == rect.MaxY - 1 && expandDis.y != 0)
             {
-                rect.y -= 1;
-                rect.height += 1;
-                isDownExpand = true;
+                expandDis.y = math.max(expandDis.y, config.speed.y + 1);
             }
-            else if (y == rect.MaxY - 1 && !isUpExpand)
+            else if (y == rect.y && expandDis.z != 0)
             {
-                rect.height += 1;
-                isUpExpand = true;
+                expandDis.y = math.max(expandDis.z, config.speed.y + 1);
             }
         }
     }

@@ -5,8 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 
 namespace Pixel
-{    
-    [BurstCompile]
+{        
     public struct PixelConfigLookup : IComponentData,IDisposable
     {
         private NativeArray<PixelConfig> configs;
@@ -26,8 +25,7 @@ namespace Pixel
             }
             configs[key] = config;
         }
-        
-        [BurstCompile]
+                
         public PixelConfig GetConfig(PixelType type)
         {
             int key = (int)type-1;

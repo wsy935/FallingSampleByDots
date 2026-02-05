@@ -26,16 +26,16 @@ namespace Pixel
 
         /// <summary>右上角 x 坐标（不包含）</summary>
         public readonly int MaxX => x + width;
-        
+
         /// <summary>右上角 y 坐标（不包含）</summary>
         public readonly int MaxY => y + height;
-        
+
         /// <summary>左下角坐标</summary>
         public readonly int2 Min => new int2(x, y);
-        
+
         /// <summary>右上角坐标</summary>
         public readonly int2 Max => new int2(MaxX, MaxY);
-        
+
         /// <summary>矩形尺寸</summary>
         public readonly int2 Size => new int2(width, height);
 
@@ -55,6 +55,51 @@ namespace Pixel
                 width + border * 2,
                 height + border * 2
             );
+        }
+        
+        /// <summary>
+        /// 依据四边距离扩展边界，左右上下
+        /// </summary>
+        /// <param name="borders"></param>
+        /// <returns></returns>
+        public readonly Rect Expand(int4 borders)
+        {
+            int startX = x - borders.w;
+            int startY = y - borders.z;
+            int newWidth = width + borders.w + borders.x;
+            int newHeight = height + borders.y + borders.z;
+            return new Rect(startX, startY, newWidth, newHeight);
+        }
+
+        /// <summary>
+        /// 根据目标点的位置扩张矩形
+        /// </summary>
+        /// <param name="endX"></param>
+        /// <param name="endY"></param>
+        public void Expand(int endX,int endY)
+        {            
+            // 扩展左边界
+            if (endX < x)
+            {
+                width += x - endX;
+                x = endX;
+            }
+            // 扩展右边界
+            if (endX >= MaxX)
+            {
+                width = endX - x + 1;
+            }
+            // 扩展下边界
+            if (endY < y)
+            {
+                height += y - endY;
+                y = endY;
+            }
+            // 扩展上边界
+            if (endY >= MaxY)
+            {
+                height = endY - y + 1;
+            }
         }
 
         /// <summary>
@@ -101,11 +146,11 @@ namespace Pixel
         /// <param name="other">另一个矩形</param>
         /// <param name="border">边界扩展大小</param>
         /// <returns>是否相交</returns>
-        public readonly bool Intersects(Rect other, int border=0)
+        public readonly bool Intersects(Rect other, int border = 0)
         {
-            bool xIntersect = (x - border) <= (other.MaxX + border) && 
+            bool xIntersect = (x - border) <= (other.MaxX + border) &&
                               (MaxX + border) >= (other.x - border);
-            bool yIntersect = (y - border) <= (other.MaxY + border) && 
+            bool yIntersect = (y - border) <= (other.MaxY + border) &&
                               (MaxY + border) >= (other.y - border);
             return xIntersect && yIntersect;
         }
@@ -130,7 +175,7 @@ namespace Pixel
 
         public readonly bool Equals(Rect other)
         {
-            return x == other.x && y == other.y && 
+            return x == other.x && y == other.y &&
                    width == other.width && height == other.height;
         }
 

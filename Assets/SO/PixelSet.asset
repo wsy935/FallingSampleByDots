@@ -18,6 +18,9 @@ MonoBehaviour:
     moveFlag: 0
     interactionFlag: 0
     density: 1
+    speed:
+      x: 0
+      y: 0
     color:
       serializedVersion: 2
       rgba: 16777215
@@ -26,6 +29,9 @@ MonoBehaviour:
     moveFlag: 19
     interactionFlag: 1
     density: 1000
+    speed:
+      x: 0
+      y: 1
     color:
       serializedVersion: 2
       rgba: 4278232319
@@ -34,6 +40,9 @@ MonoBehaviour:
     moveFlag: 26
     interactionFlag: 1
     density: 100
+    speed:
+      x: 2
+      y: 2
     color:
       serializedVersion: 2
       rgba: 4294944768
@@ -42,6 +51,9 @@ MonoBehaviour:
     moveFlag: 0
     interactionFlag: 1
     density: 10000
+    speed:
+      x: 0
+      y: 0
     color:
       serializedVersion: 2
       rgba: 4288322202
