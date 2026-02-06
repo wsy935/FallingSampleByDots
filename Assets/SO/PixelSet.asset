@@ -30,22 +30,22 @@ MonoBehaviour:
     interactionFlag: 1
     density: 1000
     speed:
-      x: 0
-      y: 1
-    color:
-      serializedVersion: 2
-      rgba: 4278232319
-  - type: 3
-    matType: 2
-    moveFlag: 26
-    interactionFlag: 1
-    density: 100
-    speed:
       x: 2
       y: 2
     color:
       serializedVersion: 2
-      rgba: 4294944768
+      rgba: 4280329690
+  - type: 3
+    matType: 2
+    moveFlag: 8
+    interactionFlag: 1
+    density: 100
+    speed:
+      x: 4
+      y: 2
+    color:
+      serializedVersion: 2
+      rgba: 2164238336
   - type: 4
     matType: 1
     moveFlag: 0

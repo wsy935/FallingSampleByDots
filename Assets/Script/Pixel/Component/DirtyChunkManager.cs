@@ -24,10 +24,10 @@ namespace Pixel
         private int gridSize;
         private int notDirtyFrameTimes;
 
-        public DirtyChunkManager(Allocator allocator, NativeArray<PixelData> buffer, WorldConfig worldConfig,int notDirtyFrameTimes ,int maxChunkSize = 128, int chunkBorder = 1, int gridSize = 64)
+        public DirtyChunkManager(Allocator allocator, NativeArray<PixelData> buffer, WorldConfig worldConfig, int notDirtyFrameTimes, int maxChunkSize = 128, int chunkBorder = 1, int gridSize = 64)
         {
             dirtyChunks = new(allocator);
-            
+
             this.buffer = buffer;
             this.worldConfig = worldConfig;
             this.maxChunkSize = maxChunkSize;
@@ -58,7 +58,7 @@ namespace Pixel
         /// </summary>
         public void Clear()
         {
-            for (int i = dirtyChunks.Length-1; i >=0; i--)
+            for (int i = dirtyChunks.Length - 1; i >= 0; i--)
             {
                 if (!dirtyChunks[i].isDirty && dirtyChunks[i].notDirtyFrame > notDirtyFrameTimes)
                 {
@@ -84,12 +84,12 @@ namespace Pixel
             dirtyChunks.Sort();
             for (int i = 0; i < dirtyChunks.Length; i++)
             {
-                int j = i + 1;                
+                int j = i + 1;
+                ref var chunk1 = ref dirtyChunks.ElementAt(i);
                 while (j < dirtyChunks.Length)
                 {
                     //在Impl中会被重新设置
-                    var chunk1 = dirtyChunks.ElementAt(i);
-                    var chunk2 = dirtyChunks.ElementAt(j);
+                    ref var chunk2 = ref dirtyChunks.ElementAt(j);
                     if (IsIntersect(in chunk1, in chunk2))
                     {
                         //将j处的矩形移除了，所以j无需变化
@@ -117,9 +117,9 @@ namespace Pixel
 
             dirtyChunks[i] = new DirtyChunk(newRect, chunk1.isDirty || chunk2.isDirty)
             {
-                notDirtyFrame = math.min(chunk1.notDirtyFrame,chunk2.notDirtyFrame)
+                notDirtyFrame = math.min(chunk1.notDirtyFrame, chunk2.notDirtyFrame)
             };
-            
+
             dirtyChunks.RemoveAt(j);
         }
 
@@ -129,7 +129,7 @@ namespace Pixel
         [BurstCompile]
         public void SplitChunk()
         {
-            NativeList<int> splitChunks = new(4,Allocator.Temp);
+            NativeList<int> splitChunks = new(4, Allocator.Temp);
             for (int i = 0; i < dirtyChunks.Length; i++)
             {
                 var curSize = dirtyChunks[i].rect.Size;
@@ -138,7 +138,7 @@ namespace Pixel
                     splitChunks.Add(i);
                 }
             }
-            
+
             for (int i = splitChunks.Length - 1; i >= 0; i--)
             {
                 int idx = splitChunks[i];
@@ -188,7 +188,7 @@ namespace Pixel
 
             // 如果没有有效区域,直接返回
             if (validAABBs.Length == 0)
-            {                
+            {
                 validAABBs.Dispose();
                 return;
             }
@@ -206,7 +206,7 @@ namespace Pixel
             dirtyChunks.RemoveAtSwapBack(chunkIndex);
             foreach (var aabb in validAABBs)
             {
-                dirtyChunks.Add(new DirtyChunk(aabb, srcChunk.isDirty){notDirtyFrame = srcChunk.notDirtyFrame});
+                dirtyChunks.Add(new DirtyChunk(aabb, srcChunk.isDirty) { notDirtyFrame = srcChunk.notDirtyFrame });
             }
 
             validAABBs.Dispose();

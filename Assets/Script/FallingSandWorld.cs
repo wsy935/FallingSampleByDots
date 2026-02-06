@@ -83,7 +83,7 @@ public class FallingSandWorld : MonoBehaviour
     {
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         var pixelConfigs = pixelSet.configs;
-        pixelLookup = new PixelConfigLookup(pixelConfigs.Length, Allocator.Persistent);
+        pixelLookup = new PixelConfigLookup(Allocator.Persistent);
         foreach (var config in pixelConfigs)
         {
             pixelLookup.AddConfig(config.type, config);
@@ -97,8 +97,7 @@ public class FallingSandWorld : MonoBehaviour
         worldConfig = new()
         {
             width = worldWidth,
-            height = worldHeight,
-            stepTimes = stepTimes
+            height = worldHeight,            
         };
         em.CreateSingleton(worldConfig);
     }

@@ -14,6 +14,6 @@ namespace Pixel
         public float density;
         [Tooltip("模拟时的速度,x为水平方向,y为垂直方向")]
         public int2 speed;
-        public Color32 color;
+        public Color32 color;        
     }    
 }

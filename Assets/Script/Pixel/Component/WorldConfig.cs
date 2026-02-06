@@ -9,8 +9,8 @@ namespace Pixel
     {
         public int width;
         public int height;
-        public int stepTimes;
-
+        public Rect Size => new(0, 0, width, height);
+        
         [BurstCompile]
         public int CoordsToIdx(int x, int y)
         {

@@ -218,7 +218,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FallingSandRender
   pixelPerUnit: 64
   showDirtyChunks: 1
-  dirtyChunkColor: {r: 1, g: 0, b: 0, a: 0.3}
+  dirtyChunkColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!212 &855104781
 SpriteRenderer:
   serializedVersion: 2

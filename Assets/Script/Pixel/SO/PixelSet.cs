@@ -5,6 +5,6 @@ namespace Pixel
     [CreateAssetMenu(fileName = "PixelSet", menuName = "SO/PixelSet")]
     public class PixelSet : ScriptableObject
     {
-        public PixelConfig[] configs;
+        public PixelConfig[] configs;                
     }        
 }

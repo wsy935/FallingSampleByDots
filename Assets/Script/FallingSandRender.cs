@@ -99,16 +99,11 @@ public class FallingSandRender : MonoBehaviour
             // 绘制矩形框（使用 GUI.Box）
             UnityEngine.Rect screenRect = new UnityEngine.Rect(screenX, screenY, screenWidth, screenHeight);
             GUI.Box(screenRect, "");
-            
-            // 绘制边框（使用 GUI.Box 的轮廓）
-            GUI.color = new Color(1f, 1f, 0f, 0.8f); // 黄色边框
+                        
             GUI.Box(new UnityEngine.Rect(screenX - 1, screenY - 1, screenWidth, 1), ""); // 上边
             GUI.Box(new UnityEngine.Rect(screenX - 1, screenY + screenHeight - 1, screenWidth, 1), ""); // 下边
             GUI.Box(new UnityEngine.Rect(screenX - 1, screenY, 1, screenHeight), ""); // 左边
-            GUI.Box(new UnityEngine.Rect(screenX + screenWidth - 1, screenY, 1, screenHeight), ""); // 右边
-            
-            // 恢复颜色
-            GUI.color = dirtyChunkColor;
+            GUI.Box(new UnityEngine.Rect(screenX + screenWidth - 1, screenY, 1, screenHeight), ""); // 右边                        
         }
 
         // 重置 GUI 颜色

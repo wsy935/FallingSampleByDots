@@ -56,50 +56,18 @@ namespace Pixel
                 height + border * 2
             );
         }
-        
-        /// <summary>
-        /// 依据四边距离扩展边界，左右上下
-        /// </summary>
-        /// <param name="borders"></param>
-        /// <returns></returns>
-        public readonly Rect Expand(int4 borders)
-        {
-            int startX = x - borders.w;
-            int startY = y - borders.z;
-            int newWidth = width + borders.w + borders.x;
-            int newHeight = height + borders.y + borders.z;
-            return new Rect(startX, startY, newWidth, newHeight);
-        }
 
         /// <summary>
-        /// 根据目标点的位置扩张矩形
+        /// 依据 BorderExpand 扩展边界
         /// </summary>
-        /// <param name="endX"></param>
-        /// <param name="endY"></param>
-        public void Expand(int endX,int endY)
-        {            
-            // 扩展左边界
-            if (endX < x)
-            {
-                width += x - endX;
-                x = endX;
-            }
-            // 扩展右边界
-            if (endX >= MaxX)
-            {
-                width = endX - x + 1;
-            }
-            // 扩展下边界
-            if (endY < y)
-            {
-                height += y - endY;
-                y = endY;
-            }
-            // 扩展上边界
-            if (endY >= MaxY)
-            {
-                height = endY - y + 1;
-            }
+        public readonly Rect Expand(BorderExpand expand)
+        {
+            return new Rect(
+                x - expand.left,
+                y - expand.bottom,
+                width + expand.left + expand.right,
+                height + expand.top + expand.bottom
+            );
         }
 
         /// <summary>
@@ -129,15 +97,6 @@ namespace Pixel
         {
             return point.x >= x && point.x < MaxX &&
                    point.y >= y && point.y < MaxY;
-        }
-
-        /// <summary>
-        /// 判断点是否在矩形内
-        /// </summary>
-        public readonly bool Contains(int px, int py)
-        {
-            return px >= x && px < MaxX &&
-                   py >= y && py < MaxY;
         }
 
         /// <summary>
@@ -207,6 +166,32 @@ namespace Pixel
         public static bool operator !=(Rect left, Rect right)
         {
             return !left.Equals(right);
+        }
+    }
+
+    /// <summary>
+    /// 表示矩形向四个方向的扩张距离
+    /// </summary>
+    public struct BorderExpand
+    {
+        public int left;
+        public int right;
+        public int top;
+        public int bottom;
+
+        public readonly bool HasExpansion => left > 0 || right > 0 || top > 0 || bottom > 0;
+
+        public void Reset()
+        {
+            left = 0;
+            right = 0;
+            top = 0;
+            bottom = 0;
+        }
+        
+        public override readonly string ToString()
+        {
+            return $"BorderExpand(L:{left}, R:{right}, T:{top}, B:{bottom})";
         }
     }
 }

@@ -5,7 +5,6 @@ using Unity.Mathematics;
 using System;
 
 using Random = Unity.Mathematics.Random;
-using NUnit.Framework;
 namespace Pixel
 {
     [BurstCompile]
@@ -58,28 +57,57 @@ namespace Pixel
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
+            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
             dirtyChunkManager.Reset();
             var dirtyChunks = dirtyChunkManager.GetDirtyChunks();
-            for (int i = 0; i < handler.worldConfig.stepTimes; i++)
+            handler.frameIdx = frameIdx;
+            bitMap.Clear();
+            for (int j = 0; j < dirtyChunks.Length; j++)
             {
-                frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
-                handler.frameIdx = frameIdx;
-                bitMap.Clear();
-                for (int j = 0; j < dirtyChunks.Length; j++)
-                {
-                    HandleDirtyChunk(ref dirtyChunks.ElementAt(j));
-                }
+                HandleDirtyChunk(ref dirtyChunks.ElementAt(j));
             }
         }
 
         [BurstCompile]
         public void HandleDirtyChunk(ref DirtyChunk dirtyChunk)
         {
-            bool hasChange = false;
-            int4 expandDis = new();//左右上下
+            Rect worldRect = worldConfig.Size;
+            BorderExpand expand = new();
 
-            //处理当前块
-            Rect rect = dirtyChunk.rect;
+            // 第一轮：模拟整个脏块
+            bool hasChange = false;
+            Rect currentRect = dirtyChunk.rect;
+            SimulateRect(currentRect, ref hasChange, ref expand);
+
+            // 迭代扩张：只处理新扩张的边缘条带                        
+            while (expand.HasExpansion)
+            {
+                Rect oldRect = currentRect;
+                currentRect = currentRect.Expand(expand).Clamp(worldRect);
+                expand.Reset();
+
+                // 模拟四条边缘条带（新扩张出来的区域）
+                SimulateEdgeStrips(oldRect, currentRect, ref hasChange, ref expand);
+            }
+
+            dirtyChunk.rect = currentRect;
+            if (!hasChange)
+            {
+                dirtyChunk.notDirtyFrame++;
+            }
+            else
+            {
+                dirtyChunk.notDirtyFrame = 0;
+            }
+            dirtyChunk.isDirty = hasChange || true;
+        }
+
+        /// <summary>
+        /// 模拟指定矩形区域内的所有像素，并记录边界扩张需求
+        /// </summary>
+        [BurstCompile]
+        private void SimulateRect(Rect rect, ref bool hasChange, ref BorderExpand expand)
+        {
             for (int i = rect.y; i < rect.MaxY; i++)
             {
                 int j, increment;
@@ -94,132 +122,84 @@ namespace Pixel
                     increment = -1;
                 }
                 for (; j < rect.MaxX && j >= rect.x; j += increment)
-                {
-                    if (TrySimulate(j, i))
+                {                    
+                    if (bitMap.IsMark(j, i)) continue;
+                    bitMap.Mark(j, i);
+
+                    int idx = worldConfig.CoordsToIdx(j, i);
+                    //如果在当前帧被模拟过则跳过
+                    if (handler.buffer[idx].frameIdx == handler.frameIdx) continue;
+
+                    var config = pixelConfigLookup.GetConfig(handler.buffer[idx].type);
+                    if (config.moveFlag == MoveFlag.Nothing) continue;
+
+                    int2 target = handler.HandleMove(j, i, config);
+                    
+                    //如果发生了移动
+                    if (target.x != j || target.y != i)
                     {
                         hasChange = true;
-                        CheckRectExpand(j, i, in rect, ref expandDis);
-                    }
+                        CheckBorderExpand(target, in rect, ref expand);
+                    }                    
                 }
             }
-            var worldRect = new Rect(0, 0, worldConfig.width, worldConfig.height);
-            rect.Expand(expandDis);
-            dirtyChunk.rect = rect.Clamp(worldRect);
-
-            //处理扩展块
-            bool hasExpand = expandDis.w != 0 || expandDis.x != 0 || expandDis.y != 0 || expandDis.z != 0;
-            while (hasExpand)
-            {
-                int4 curExpandDis = new();
-                Rect curRect = dirtyChunk.rect;
-                if (expandDis.w != 0)
-                {
-                    for (int i = curRect.y; i < curRect.MaxY; i++)
-                    {
-                        for (int j = 1; j < expandDis.w; j++)
-                        {
-                            int curX = curRect.x - j;
-                            if (TrySimulate(curX, i))
-                            {
-                                CheckRectExpand(curX, i, in curRect, ref curExpandDis);
-                            }
-                        }
-                    }
-                }
-                if (expandDis.x != 0)
-                {
-                    for (int i = curRect.y; i < curRect.MaxY; i++)
-                    {
-                        for (int j = 1; j < expandDis.w; j++)
-                        {
-                            int curX = curRect.MaxX - 1 + j;
-                            if (TrySimulate(curX, i))
-                            {
-                                CheckRectExpand(curX, i, in curRect, ref curExpandDis);
-                            }
-                        }
-                    }
-                }
-
-                if (expandDis.y != 0)
-                {
-                    for (int i = 1; i < expandDis.y; i++)
-                    {
-                        for (int j = curRect.x; j < curRect.MaxX; j++)
-                        {
-                            int curY = curRect.MaxY - 1 + i;
-                            if (TrySimulate(j, curY))
-                            {
-                                CheckRectExpand(j, curY, in curRect, ref curExpandDis);
-                            }
-                        }
-                    }
-                }
-                if (expandDis.z != 0)
-                {
-                    for (int i = 1; i < expandDis.y; i++)
-                    {
-                        for (int j = curRect.x; j < curRect.MaxX; j++)
-                        {
-                            int curY = curRect.y - i;
-                            if (TrySimulate(j, curY))
-                            {
-                                CheckRectExpand(j, curY, in curRect, ref curExpandDis);
-                            }
-                        }
-                    }
-                }
-
-                hasExpand = expandDis.w != 0 || expandDis.x != 0 || expandDis.y != 0 || expandDis.z != 0;
-                curRect.Expand(curExpandDis);
-                dirtyChunk.rect = curRect.Clamp(worldRect);
-            }
-
-            bool isDirty = hasChange;
-            if (!isDirty)
-            {
-                dirtyChunk.notDirtyFrame++;
-            }
-            else
-            {
-                dirtyChunk.notDirtyFrame = 0;
-            }
-            dirtyChunk.isDirty = isDirty;
         }
 
         /// <summary>
-        /// 返回模拟的结果，如果像素在模拟之后被设置返回true，否则为false
-        /// </summary>        
-        private bool TrySimulate(int x, int y)
+        /// 模拟新扩张的边缘条带区域
+        /// </summary>
+        [BurstCompile]
+        private void SimulateEdgeStrips(Rect oldRect, Rect newRect, ref bool hasChange, ref BorderExpand expand)
         {
-            if (bitMap.IsMark(x, y)) return false;
-            bitMap.Mark(x, y);
-            int idx = worldConfig.CoordsToIdx(x, y);
-            if (handler.buffer[idx].frameIdx == handler.frameIdx) return false;
-            handler.HandleMove(x, y);
-            return handler.buffer[idx].frameIdx == handler.frameIdx;
+            // 下条带（包含左下、右下角落，跨整个 newRect 宽度）
+            if (newRect.y < oldRect.y)
+            {
+                Rect bottomStrip = new(newRect.x, newRect.y, newRect.width, oldRect.y - newRect.y);
+                SimulateRect(bottomStrip, ref hasChange, ref expand);
+            }
+
+            // 左条带（不含上下角落）
+            if (newRect.x < oldRect.x)
+            {
+                Rect leftStrip = new(newRect.x, oldRect.y, oldRect.x - newRect.x, oldRect.height);
+                SimulateRect(leftStrip, ref hasChange, ref expand);
+            }
+
+            // 右条带（不含上下角落）
+            if (newRect.MaxX > oldRect.MaxX)
+            {
+                Rect rightStrip = new(oldRect.MaxX, oldRect.y, newRect.MaxX - oldRect.MaxX, oldRect.height);
+                SimulateRect(rightStrip, ref hasChange, ref expand);
+            }
+
+            // 上条带（包含左上、右上角落，跨整个 newRect 宽度）
+            if (newRect.MaxY > oldRect.MaxY)
+            {
+                Rect topStrip = new(newRect.x, oldRect.MaxY, newRect.width, newRect.MaxY - oldRect.MaxY);
+                SimulateRect(topStrip, ref hasChange, ref expand);
+            }
         }
-
-        private void CheckRectExpand(int x, int y, in Rect rect, ref int4 expandDis)
-        {
-            int idx = worldConfig.CoordsToIdx(x, y);
-            var config = pixelConfigLookup.GetConfig(handler.buffer[idx].type);
-            if (x == rect.x && expandDis.w != 0)
+        
+        /// <summary>
+        /// 根据像素的目标位置判断是否需要扩张脏矩形边界
+        /// </summary>
+        private void CheckBorderExpand(int2 target, in Rect rect, ref BorderExpand expand)
+        {            
+            if (target.x <= rect.x)
             {
-                expandDis.w = math.max(expandDis.w, config.speed.x + 1);
+                expand.left = math.max(expand.left, rect.x-target.x +1);
             }
-            else if (x == rect.MaxX - 1 && expandDis.x != 0)
+            if (target.x >= rect.MaxX - 1)
             {
-                expandDis.x = math.max(expandDis.x, config.speed.x + 1);
+                expand.right = math.max(expand.right,target.x-rect.MaxX+2);
             }
-
-            if (y == rect.MaxY - 1 && expandDis.y != 0)
+            if (target.y >= rect.MaxY - 1)
             {
-                expandDis.y = math.max(expandDis.y, config.speed.y + 1);
+                expand.top = math.max(expand.top, target.y-rect.MaxY + 2);
             }
-            else if (y == rect.y && expandDis.z != 0)
+            if (target.y <= rect.y)
             {
-                expandDis.y = math.max(expandDis.z, config.speed.y + 1);
+                expand.bottom = math.max(expand.bottom, rect.y-target.y + 1);
             }
         }
     }

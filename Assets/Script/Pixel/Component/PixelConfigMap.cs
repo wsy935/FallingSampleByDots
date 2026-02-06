@@ -1,8 +1,6 @@
 using System;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 
 namespace Pixel
 {        
@@ -10,25 +8,21 @@ namespace Pixel
     {
         private NativeArray<PixelConfig> configs;
 
-        public PixelConfigLookup(int size,Allocator allocator)
+        public PixelConfigLookup(Allocator allocator)
         {
+            int size = Enum.GetValues(typeof(PixelType)).Length;
             configs = new(size, allocator);
         }
 
         public void AddConfig(PixelType type, PixelConfig config)
-        {
-            //-1 偏移Nothing
-            int key = (int)type-1;
-            if (key >= configs.Length)
-            {
-                throw new IndexOutOfRangeException($"[PixelConfigLookup] not compatible Type in configs with {type}");
-            }
+        {            
+            int key = (int)type;            
             configs[key] = config;
         }
                 
         public PixelConfig GetConfig(PixelType type)
         {
-            int key = (int)type-1;
+            int key = (int)type;
             return configs[key];
         }
 

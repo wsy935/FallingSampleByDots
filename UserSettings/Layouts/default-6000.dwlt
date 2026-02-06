@@ -328,8 +328,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "UnityEditor.MainToolbarWindow\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 9
-    y: 52
+    x: 0
+    y: 0
     width: 2542
     height: 36
   m_SerializedDataModeController:
@@ -1626,8 +1626,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Hierarchy\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 9
-    y: 88
+    x: 0
+    y: 24
     width: 219
     height: 827
   m_SerializedDataModeController:
@@ -1699,8 +1699,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Scene\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 229
-    y: 88
+    x: 221
+    y: 24
     width: 1596
     height: 827
   m_SerializedDataModeController:
@@ -2513,8 +2513,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Archetypes\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 1827
-    y: 88
+    x: 1819
+    y: 24
     width: 189
     height: 827
   m_SerializedDataModeController:
@@ -2606,9 +2606,6 @@ MonoBehaviour:
     - m_Data: 0
     - m_Data: 32576
     - m_Data: 32578
-    - m_Data: 32726
-    - m_Data: 1000000000
-    - m_Data: 2147483647
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -2723,8 +2720,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Console\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 9
-    y: 941
+    x: 0
+    y: 877
     width: 2008
     height: 396
   m_SerializedDataModeController:
@@ -2761,8 +2758,8 @@ MonoBehaviour:
     m_TextWithWhitespace: "Inspector\u200B"
   m_Pos:
     serializedVersion: 2
-    x: 2018
-    y: 88
+    x: 2010
+    y: 24
     width: 532
     height: 1249
   m_SerializedDataModeController:
