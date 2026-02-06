@@ -1,9 +1,6 @@
-using System.Collections.Generic;
 using Pixel;
 using Unity.Collections;
-using Unity.Entities;
 using Unity.Mathematics;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Rect = Pixel.Rect;
@@ -20,6 +17,7 @@ public class PixelWriter : MonoBehaviour
     private NativeArray<PixelData> buffer;
     private FallingSandWorld fsw;
     private DirtyChunkManager dirtyChunkManager;
+    private Unity.Mathematics.Random random;
 
     private void Start()
     {
@@ -27,6 +25,7 @@ public class PixelWriter : MonoBehaviour
         fsw = FallingSandWorld.Instance;
         dirtyChunkManager = fsw.DirtyChunkManager;
         buffer = fsw.PixelBuffer.buffer;
+        random = new Unity.Mathematics.Random((uint)System.DateTime.Now.Ticks);
     }
 
     private void Update()
@@ -90,7 +89,8 @@ public class PixelWriter : MonoBehaviour
         buffer[idx] = new()
         {
             type = pixelType,
-            frameIdx = buffer[idx].frameIdx
+            frameIdx = buffer[idx].frameIdx,
+            seed = (byte)random.NextInt(0, 256)
         };
         dirtyChunkManager.AddChunk(new(startX, startY, 1, 1));
     }
@@ -108,7 +108,8 @@ public class PixelWriter : MonoBehaviour
                 buffer[idx] = new()
                 {
                     type = pixelType,
-                    frameIdx = buffer[idx].frameIdx
+                    frameIdx = buffer[idx].frameIdx,
+                    seed = (byte)random.NextInt(0, 256)
                 };
             }
         }
@@ -127,7 +128,8 @@ public class PixelWriter : MonoBehaviour
                 buffer[idx] = new()
                 {
                     type = pixelType,
-                    frameIdx = buffer[idx].frameIdx
+                    frameIdx = buffer[idx].frameIdx,
+                    seed = (byte)random.NextInt(0, 256)
                 };
             }
         }
@@ -164,7 +166,8 @@ public class PixelWriter : MonoBehaviour
                 buffer[idx] = new()
                 {
                     type = type,
-                    frameIdx = buffer[idx].frameIdx
+                    frameIdx = buffer[idx].frameIdx,
+                    seed = (byte)random.NextInt(0, 256)
                 };
             }
         }

@@ -1,11 +1,7 @@
 using Unity.Burst;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Mathematics;
-using UnityEditorInternal;
 using UnityEngine;
 
 namespace Pixel
@@ -14,7 +10,6 @@ namespace Pixel
     public partial class RenderSystem : SystemBase
     {
         WorldConfig worldConfig;
-        PixelConfigLookup pixelConfigLookup;
         NativeArray<PixelData> buffer;
         DirtyChunkManager dirtyChunkManager;
         Texture2D tex;
@@ -31,7 +26,6 @@ namespace Pixel
             tex = FallingSandRender.Instance.Tex;
             buffer = SystemAPI.GetSingleton<PixelBuffer>().buffer;
             dirtyChunkManager = SystemAPI.GetSingleton<DirtyChunkManager>();
-            pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>();
             worldConfig = SystemAPI.GetSingleton<WorldConfig>();
             isInit = true;
         }
@@ -44,7 +38,6 @@ namespace Pixel
             {
                 dirtyChunks = dirtyChunks,
                 renderBuffer = renderBuffer,
-                pixelConfigLookup = pixelConfigLookup,
                 buffer = buffer,
                 worldConfig = worldConfig
             };
@@ -55,12 +48,18 @@ namespace Pixel
         }
     }
 
+    /// <summary>
+    /// 将像素数据编码写入纹理，供 Shader 解码渲染：
+    /// R = PixelType ID (0~255)
+    /// G = seed (0~255) 像素种子，决定基础颜色变化
+    /// B = modulate (0~255) 调制值，外部影响（火烧/侵蚀）
+    /// A = 255 (不透明标记，Shader 中根据 type 决定透明度)
+    /// </summary>
     [BurstCompile]
     public struct ExtractPixelJob : IJobParallelFor
     {
         [NativeDisableParallelForRestriction] public NativeList<DirtyChunk> dirtyChunks;
         [NativeDisableParallelForRestriction] public NativeArray<Color32> renderBuffer;
-        [ReadOnly] public PixelConfigLookup pixelConfigLookup;
         [ReadOnly] public NativeArray<PixelData> buffer;
         [ReadOnly] public WorldConfig worldConfig;
 
@@ -68,15 +67,25 @@ namespace Pixel
         public void Execute(int index)
         {
             var dirtyChunk = dirtyChunks[index];
-            int2 minXY = new(dirtyChunk.rect.x, dirtyChunk.rect.y);
-            int2 maxXY = new(minXY.x + dirtyChunk.rect.width, minXY.y + dirtyChunk.rect.height);
-            for (int i = minXY.y; i < maxXY.y; i++)
+            int minX = dirtyChunk.rect.x;
+            int minY = dirtyChunk.rect.y;
+            int maxX = minX + dirtyChunk.rect.width;
+            int maxY = minY + dirtyChunk.rect.height;
+
+            for (int y = minY; y < maxY; y++)
             {
-                for (int j = minXY.x; j < maxXY.x; j++)
+                for (int x = minX; x < maxX; x++)
                 {
-                    int idx = worldConfig.CoordsToIdx(j, i);
-                    var config = pixelConfigLookup.GetConfig(buffer[idx].type);
-                    renderBuffer[idx] = config.color;
+                    int idx = worldConfig.CoordsToIdx(x, y);
+                    var pixelData = buffer[idx];
+
+                    // 编码像素数据到 RGBA 通道
+                    renderBuffer[idx] = new Color32(
+                        (byte)pixelData.type,       // R: 像素类型 ID
+                        pixelData.seed,             // G: 像素种子
+                        pixelData.modulate,         // B: 调制值
+                        255                         // A: 不透明标记
+                    );
                 }
             }
         }

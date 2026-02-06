@@ -27,7 +27,8 @@ public class FallingSandWorld : MonoBehaviour
 
     public PixelBuffer PixelBuffer => pixelBuffer;
     public DirtyChunkManager DirtyChunkManager => dirtyChunkManager;
-    public WorldConfig WorldConfig => worldConfig;        
+    public WorldConfig WorldConfig => worldConfig;
+    public PixelSet PixelSet => pixelSet;
 
     void Awake()
     {

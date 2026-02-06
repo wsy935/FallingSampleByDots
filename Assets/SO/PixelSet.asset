@@ -24,28 +24,37 @@ MonoBehaviour:
     color:
       serializedVersion: 2
       rgba: 16777215
+    noiseLowIntensity: 0
+    noiseMidIntensity: 0
+    noiseHighIntensity: 0
   - type: 2
     matType: 1
     moveFlag: 19
     interactionFlag: 1
     density: 1000
     speed:
-      x: 2
+      x: 0
       y: 2
     color:
       serializedVersion: 2
       rgba: 4280329690
+    noiseLowIntensity: 0.117
+    noiseMidIntensity: 0.242
+    noiseHighIntensity: 0.547
   - type: 3
     matType: 2
-    moveFlag: 8
+    moveFlag: 26
     interactionFlag: 1
     density: 100
     speed:
-      x: 4
+      x: 2
       y: 2
     color:
       serializedVersion: 2
       rgba: 2164238336
+    noiseLowIntensity: 0.103
+    noiseMidIntensity: 0.251
+    noiseHighIntensity: 0.408
   - type: 4
     matType: 1
     moveFlag: 0
@@ -57,3 +66,6 @@ MonoBehaviour:
     color:
       serializedVersion: 2
       rgba: 4288322202
+    noiseLowIntensity: 0.143
+    noiseMidIntensity: 0.381
+    noiseHighIntensity: 0.726
