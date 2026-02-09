@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine;
 using Random = Unity.Mathematics.Random;
 namespace Pixel
 {
@@ -16,8 +17,7 @@ namespace Pixel
         public uint frameIdx;
 
         #region 基础工具方法
-
-        [BurstCompile]
+    
         private PixelData GetPixel(int x, int y)
         {
             int idx = worldConfig.CoordsToIdx(x, y);
@@ -34,7 +34,7 @@ namespace Pixel
         /// <summary>
         /// 纯检测：判断给定配置的源像素是否可以移动到 tar 位置（用于仅需验证不执行移动的场景）
         /// </summary>
-        [BurstCompile]
+        
         private bool CanMoveTo(in PixelConfig srcConfig, int tarX, int tarY)
         {
             if (!worldConfig.IsInWorld(tarX, tarY)) return false;
@@ -59,7 +59,7 @@ namespace Pixel
         /// 尝试移动：合并可移动性检测与执行交换，消除重复的索引计算和缓冲区读取。
         /// 返回 true 表示移动成功，false 表示无法移动。
         /// </summary>
-        [BurstCompile]
+        
         private bool TryMove(in PixelConfig srcConfig, int srcX, int srcY, int tarX, int tarY)
         {
             if (!worldConfig.IsInWorld(tarX, tarY)) return false;
@@ -82,7 +82,7 @@ namespace Pixel
             PixelData srcPixel = buffer[srcIdx];
 
             tarPixel.frameIdx = frameIdx;
-            srcPixel.frameIdx = frameIdx;
+            srcPixel.frameIdx = frameIdx;                        
             (buffer[srcIdx], buffer[tarIdx]) = (tarPixel, srcPixel);
 
             return true;
@@ -95,7 +95,7 @@ namespace Pixel
         /// <summary>
         /// 垂直逐步移动：从 (x,y) 出发，每一步与途中粒子交换，返回最终位置。
         /// </summary>
-        [BurstCompile]
+        
         private int2 MoveVertical(int x, int y, in PixelConfig srcConfig, bool isDown)
         {
             int speed = srcConfig.speed.y;
@@ -118,7 +118,7 @@ namespace Pixel
         /// 每步先检查水平基础点可达性（仅验证，不移动），然后逐格交换。
         /// 第一格是斜向移动（x+offset, y+yDir），后续格是纯垂直移动。
         /// </summary>
-        [BurstCompile]
+        
         private int2 MoveDiagonal(int x, int y, in PixelConfig srcConfig, int offset, bool isDown)
         {
             int speed = (srcConfig.speed.x + srcConfig.speed.y) >> 1;
@@ -161,7 +161,7 @@ namespace Pixel
         /// <summary>
         /// 水平逐步移动：每一步检查支撑并与途中粒子交换，返回最终位置。
         /// </summary>
-        [BurstCompile]
+        
         private int2 MoveHorizontal(int x, int y, in PixelConfig srcConfig, int offset)
         {
             int curX = x;
@@ -195,7 +195,7 @@ namespace Pixel
         /// <summary>
         /// 返回移动后的位置
         /// </summary>
-        [BurstCompile]
+        
         public int2 HandleMove(int x, int y, in PixelConfig config)
         {
             int2 origin = new(x, y);

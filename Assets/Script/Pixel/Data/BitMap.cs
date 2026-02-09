@@ -28,7 +28,7 @@ namespace Pixel
         /// <summary>
         /// 清空所有标记
         /// </summary>
-        [BurstCompile]
+        
         public void Clear()
         {
             for (int i = 0; i < bits.Length; i++)
@@ -40,7 +40,7 @@ namespace Pixel
         /// <summary>
         /// 检查是否已被标记
         /// </summary>
-        [BurstCompile]
+        
         public bool IsMark(int x, int y)
         {
             int idx = y * width + x;
@@ -52,7 +52,7 @@ namespace Pixel
         /// <summary>
         /// 标记
         /// </summary>       
-        [BurstCompile]
+        
         public void Mark(int x, int y)
         {
             int idx = y * width + x;

@@ -7,7 +7,6 @@ namespace Pixel
     {
         public int2 pos;
         public bool isDirty;
-        public bool isBlack;
-        public int notDirtyFrame;
+        public bool isBlack;        
     }
 }

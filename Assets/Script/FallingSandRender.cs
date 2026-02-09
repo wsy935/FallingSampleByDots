@@ -1,5 +1,6 @@
 using Pixel;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 [RequireComponent(typeof(SpriteRenderer))]
@@ -143,7 +144,25 @@ public class FallingSandRender : MonoBehaviour
         }
     }
 
-    private void OnGUI()
-    {        
+    void OnDrawGizmos()
+    {
+        if (!chunks.IsCreated) return;
+
+        float size = (float)worldConfig.chunkSize / pixelPerUnit;
+        for (int i = 0; i < chunks.Length; i++)
+        {
+            if (!chunks[i].isDirty) continue;
+
+            int2 coord = worldConfig.GetCoordsByChunk(chunks[i].pos, 0, 0);
+            float x = (float)(coord.x - (worldConfig.width >> 1)) / pixelPerUnit;
+            float y = (float)(coord.y - (worldConfig.height >> 1)) / pixelPerUnit;
+
+            Gizmos.color = ((chunks[i].pos.x+chunks[i].pos.y) & 1) == 0 ? Color.black : Color.white;
+
+            Gizmos.DrawLine(new(x, y), new(x, y + size));
+            Gizmos.DrawLine(new(x, y), new(x + size, y));
+            Gizmos.DrawLine(new(x + size, y), new(x + size, y + size));
+            Gizmos.DrawLine(new(x, y+size), new(x + size, y + size));
+        }        
     }
 }

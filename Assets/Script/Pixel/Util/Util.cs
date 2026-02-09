@@ -1,10 +1,12 @@
-using System;
-using System.Runtime.CompilerServices;
-using Unity.Mathematics;
+using Unity.Burst;
 
 namespace Pixel
-{
+{       
     public static class Util
-    {
+    {        
+        public static void Test()
+        {
+            
+        }
     }
 }       

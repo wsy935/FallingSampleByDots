@@ -8,21 +8,17 @@ using Random = Unity.Mathematics.Random;
 using Unity.Jobs;
 using UnityEngine;
 using System.Runtime.CompilerServices;
+using UnityEngine.Profiling;
 namespace Pixel
 {
     [BurstCompile]
-    public partial struct SimulationSystem : ISystem, ISystemStartStop
+    public partial struct SimulationSystem : ISystem
     {
         private uint frameIdx;
         private Random random;
         private BitMap bitMap;
-        private WorldConfig worldConfig;
-        private PixelConfigLookup pixelConfigLookup;
-        private DynamicBuffer<PixelData> pixelBuffer;
-        private DynamicBuffer<Chunk> chunks;
-        private SimulationHandler handler;
-        bool isInit;
-
+        bool isInit;        
+        
         public void OnCreate(ref SystemState state)
         {
             isInit = false;
@@ -36,42 +32,28 @@ namespace Pixel
         {
             bitMap.Dispose();
         }
-
-        public void OnStartRunning(ref SystemState state)
-        {
-            if (isInit) return;
-            isInit = true;
-            pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>();
-            worldConfig = SystemAPI.GetSingleton<WorldConfig>();
-            pixelBuffer = SystemAPI.GetSingletonBuffer<PixelData>();
-            chunks = SystemAPI.GetSingletonBuffer<Chunk>();
-
-            handler = new SimulationHandler
-            {
-                pixelConfigLookup = pixelConfigLookup,
-                worldConfig = worldConfig,
-                chunks = chunks,
-                buffer = pixelBuffer,
-                random = random
-            };
-            bitMap = new(worldConfig.width, worldConfig.height, Allocator.Persistent);
-        }
-
-        public void OnStopRunning(ref SystemState state) { }
-
-        [BurstCompile]
+        
         public void OnUpdate(ref SystemState state)
         {
-            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
-            handler.frameIdx = frameIdx;
-
+            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;            
+            Profiler.BeginSample("SetHandler");
+            var handler = new SimulationHandler()
+            {
+                pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
+                buffer = SystemAPI.GetSingletonBuffer<PixelData>(),
+                chunks = SystemAPI.GetSingletonBuffer<Chunk>(),
+                worldConfig = SystemAPI.GetSingleton<WorldConfig>(),
+                frameIdx = frameIdx,
+                random = random
+            };
+            Profiler.EndSample();
+            var job = new SimulateJob
+            {
+                handler = handler,
+            };
             for (int i = 0; i < 4; i++)
             {
-                var job = new SimulateJob
-                {
-                    handler = handler,
-                    updateBlack = (i & 1) == 0
-                };
+                job.updateBlack = (i & 1) == 0;
                 state.Dependency = job.Schedule(handler.chunks.Length, 4, state.Dependency);
                 state.CompleteDependency();
             }
@@ -89,7 +71,7 @@ namespace Pixel
         {
             var chunk = handler.chunks[index];
             if (updateBlack != chunk.isBlack) return;
-            if (!chunk.isDirty) return;
+            // if (!chunk.isDirty) return;
 
             var worldConfig = handler.worldConfig;
             int chunkSize = worldConfig.chunkSize;
@@ -133,20 +115,10 @@ namespace Pixel
                     }
                 }
             }
-            if (hasChange)
-            {
-                chunk.notDirtyFrame = 0;
-                chunk.isDirty = hasChange;
-            }
-            else
-            {
-                chunk.notDirtyFrame++;
-                if (chunk.notDirtyFrame > 1)
-                    chunk.isDirty = false;
-            }
+            chunk.isDirty = hasChange;
             handler.chunks[index] = chunk;
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void NotifyNeighBour(int idx)
         {

@@ -76,7 +76,7 @@ public class PixelWriter : MonoBehaviour
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(mousePos);
 
         // 转换为像素坐标（假设sprite的pivot在中心）
-        float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;        
+        float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
         int pixelX = Mathf.FloorToInt(worldPos.x * pixelPerUnit + (worldConfig.width / 2));
         int pixelY = Mathf.FloorToInt(worldPos.y * pixelPerUnit + (worldConfig.height / 2));
 
@@ -133,7 +133,7 @@ public class PixelWriter : MonoBehaviour
                 buffer[idx] = new()
                 {
                     type = type,
-                    frameIdx = buffer[idx].frameIdx,
+                    frameIdx = 0,
                     seed = (byte)random.NextInt(0, 256)
                 };
 

@@ -28,8 +28,7 @@ namespace Pixel
 
         /// <summary>
         /// 查找操作，带路径压缩优化
-        /// </summary>
-        [BurstCompile]
+        /// </summary>        
         public int Find(int x)
         {
             if (parent[x] != x)
@@ -42,8 +41,7 @@ namespace Pixel
 
         /// <summary>
         /// 合并操作，带按秩合并优化
-        /// </summary>
-        [BurstCompile]
+        /// </summary>        
         public void Union(int x, int y)
         {
             int rootX = Find(x);

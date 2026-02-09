@@ -9,37 +9,18 @@ namespace Pixel
 {
     [UpdateBefore(typeof(SimulationSystem))]
     public partial class RenderSystem : SystemBase
-    {
-        WorldConfig worldConfig;
-        DynamicBuffer<PixelData> buffer;
-        DynamicBuffer<Chunk> chunks;
-        Texture2D tex;
-        bool isInit;
-
-        protected override void OnCreate()
-        {
-            isInit = false;
-        }
-
-        protected override void OnStartRunning()
-        {
-            if (isInit) return;
-            tex = FallingSandRender.Instance.Tex;
-            buffer = SystemAPI.GetSingletonBuffer<PixelData>();
-            chunks = SystemAPI.GetSingletonBuffer<Chunk>();
-            worldConfig = SystemAPI.GetSingleton<WorldConfig>();
-            isInit = true;
-        }
-
+    {                                    
         protected override void OnUpdate()
         {
+            var tex = FallingSandRender.Instance.Tex;
             var renderBuffer = tex.GetRawTextureData<Color32>();
+            var chunks = SystemAPI.GetSingletonBuffer<Chunk>();
             var job = new ExtractPixelJob()
             {
                 renderBuffer = renderBuffer,
-                buffer = buffer,
+                buffer = SystemAPI.GetSingletonBuffer<PixelData>(),
                 chunks = chunks,
-                worldConfig = worldConfig
+                worldConfig = SystemAPI.GetSingleton<WorldConfig>()
             };
             Dependency = job.Schedule(chunks.Length, 4, Dependency);
             CompleteDependency();

@@ -4,7 +4,7 @@ using Unity.Mathematics;
 
 namespace Pixel
 {
-    [BurstCompile]
+    
     public struct WorldConfig : IComponentData
     {
         public int width;
@@ -13,20 +13,26 @@ namespace Pixel
         public int2 chunkCnt;
         public Rect Size => new(0, 0, width, height);
 
-        [BurstCompile]
+        /// <summary>
+        /// 世界坐标转化为下标        
+        /// </summary>
         public int CoordsToIdx(int x, int y)
         {
             return y * width + x;
         }
-    
-        [BurstCompile]           
-        public int GetChunkIdx(int x,int y)
+
+        /// <summary>
+        /// chunk位置转化为chunk的下标        
+        /// </summary>
+        public int GetChunkIdx(int x, int y)
         {
-            int2 chunkPos = new(x / chunkSize, y  / chunkSize);
+            int2 chunkPos = new(x / chunkSize, y / chunkSize);
             return chunkPos.y * chunkCnt.x + chunkPos.x;
         }
 
-        [BurstCompile]
+        /// <summary>
+        /// 根据chunk的局部坐标获取世界位置
+        /// </summary>        
         public int2 GetCoordsByChunk(int2 chunkPos,int x,int y)
         {
             int worldX = x + chunkPos.x * chunkSize;
@@ -34,7 +40,9 @@ namespace Pixel
             return new(worldX, worldY);
         }
 
-        [BurstCompile]
+        /// <summary>
+        /// 是否在世界中
+        /// </summary>        
         public bool IsInWorld(int x, int y)
         {
             return x >= 0 && x < width && y >= 0 && y < height;

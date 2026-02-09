@@ -34,7 +34,7 @@ MonoBehaviour:
     density: 1000
     speed:
       x: 0
-      y: 2
+      y: 1
     color:
       serializedVersion: 2
       rgba: 4280329690

@@ -7,7 +7,7 @@ namespace Pixel
     //NativeArray是值类型，修改时需要重新赋值，所以放弃使用二维数组
     public struct PixelData : IBufferElementData
     {
-        public PixelType type;
+        public PixelType type;        
         public uint frameIdx;
         /// <summary>
         /// 像素种子 (0~255)，创建时基于空间位置+随机性生成，用于 Shader 确定最终颜色。
