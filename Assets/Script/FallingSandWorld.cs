@@ -2,32 +2,31 @@ using Unity.Entities;
 using UnityEngine;
 using Pixel;
 using Unity.Collections;
+using Unity.Mathematics;
 
 public class FallingSandWorld : MonoBehaviour
 {
     [Header("基础")]
-    [SerializeField] private int frame=60;
+    [SerializeField] private int frame = 60;
 
     [Header("世界设置")]
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
     [SerializeField] private int stepTimes = 2;
     [SerializeField] private PixelSet pixelSet;
-    
+
     [Header("脏区块设置")]
     [SerializeField] private int maxChunkSize = 128;
     [SerializeField] private int chunkBorder = 1;
     [SerializeField] private int gridSize = 64;
+
+    [Header("像素区块设置")]
+    [SerializeField] private int chunkSize;
+
     private PixelConfigLookup pixelLookup;
-    private WorldConfig worldConfig;
-    private PixelBuffer pixelBuffer;
-    
-    private DirtyChunkManager dirtyChunkManager;
+
     public static FallingSandWorld Instance { get; private set; }
 
-    public PixelBuffer PixelBuffer => pixelBuffer;
-    public DirtyChunkManager DirtyChunkManager => dirtyChunkManager;
-    public WorldConfig WorldConfig => worldConfig;
     public PixelSet PixelSet => pixelSet;
 
     void Awake()
@@ -50,39 +49,46 @@ public class FallingSandWorld : MonoBehaviour
 
     void OnDestroy()
     {
-        pixelBuffer.Dispose();
         pixelLookup.Dispose();
-        dirtyChunkManager.Dispose();
     }
 
     private void InitWorld()
     {
-        pixelBuffer = new()
-        {
-            buffer= new(worldHeight * worldWidth, Allocator.Persistent)
-        };
-        for (int i = 0; i < pixelBuffer.buffer.Length; i++)
-            pixelBuffer.buffer[i] = new() { type = PixelType.Empty, frameIdx = 0 };
-        World.DefaultGameObjectInjectionWorld.EntityManager.CreateSingleton(pixelBuffer);
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        var pixelBuffer = em.GetBuffer<PixelData>(em.CreateSingletonBuffer<PixelData>());
+        int totalSize = worldHeight * worldWidth;
+        pixelBuffer.EnsureCapacity(totalSize);
+        for (int i = 0; i < totalSize; i++)
+            pixelBuffer.Add(new() { type = PixelType.Empty, frameIdx = 0 });
 
-        CreateWorldConfig();
-        CreateDirtyChunkManager();
-        CreatePixelConfigMap();
-    }
-    
-    //需在worldConfig创建之后调用
-    private void CreateDirtyChunkManager()
-    {
-        dirtyChunkManager = new DirtyChunkManager(Allocator.Persistent, pixelBuffer.buffer, worldConfig, stepTimes,maxChunkSize, chunkBorder, gridSize);
-        dirtyChunkManager.AddChunk(new(0, 0, worldConfig.width, worldConfig.height));
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        em.CreateSingleton(dirtyChunkManager);
-    }
-        
-    //添加PixelConfigMap单例组件,由于其包含NativeContainer,所以缓存该组件，在Destroy时释放
-    private void CreatePixelConfigMap()
-    {
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        int2 chunkCnt = new((worldWidth + chunkSize - 1) / chunkSize,
+            (worldHeight + chunkSize - 1) / chunkSize
+        );
+        var chunkBuffer = em.GetBuffer<Chunk>(em.CreateSingletonBuffer<Chunk>());
+        chunkBuffer.EnsureCapacity(chunkCnt.x * chunkCnt.y);        
+        for (int i = 0; i < chunkCnt.y; i++)
+        {
+            for (int j = 0; j < chunkCnt.x; j++)
+            {
+                var chunk = new Chunk()
+                {
+                    pos = new(j, i),
+                    isDirty = true,
+                    isBlack = ((i + j) & 1) == 0
+                };
+                chunkBuffer.Add(chunk);
+            }
+        }
+
+        var worldConfig = new WorldConfig()
+        {
+            width = worldWidth,
+            height = worldHeight,
+            chunkCnt = chunkCnt,
+            chunkSize = chunkSize
+        };
+        em.CreateSingleton(worldConfig);
+
         var pixelConfigs = pixelSet.configs;
         pixelLookup = new PixelConfigLookup(Allocator.Persistent);
         foreach (var config in pixelConfigs)
@@ -90,16 +96,5 @@ public class FallingSandWorld : MonoBehaviour
             pixelLookup.AddConfig(config.type, config);
         }
         em.CreateSingleton(pixelLookup);
-    }
-
-    private void CreateWorldConfig()
-    {
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        worldConfig = new()
-        {
-            width = worldWidth,
-            height = worldHeight,            
-        };
-        em.CreateSingleton(worldConfig);
     }
 }

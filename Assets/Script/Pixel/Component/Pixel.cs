@@ -1,6 +1,11 @@
+using System;
+using Unity.Collections;
+using Unity.Entities;
+
 namespace Pixel
 {
-    public struct PixelData
+    //NativeArray是值类型，修改时需要重新赋值，所以放弃使用二维数组
+    public struct PixelData : IBufferElementData
     {
         public PixelType type;
         public uint frameIdx;

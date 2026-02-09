@@ -29,7 +29,7 @@ MonoBehaviour:
     noiseHighIntensity: 0
   - type: 2
     matType: 1
-    moveFlag: 19
+    moveFlag: 3
     interactionFlag: 1
     density: 1000
     speed:
@@ -38,23 +38,23 @@ MonoBehaviour:
     color:
       serializedVersion: 2
       rgba: 4280329690
-    noiseLowIntensity: 0.117
-    noiseMidIntensity: 0.242
-    noiseHighIntensity: 0.547
+    noiseLowIntensity: 0
+    noiseMidIntensity: 0
+    noiseHighIntensity: 0
   - type: 3
     matType: 2
     moveFlag: 26
     interactionFlag: 1
     density: 100
     speed:
-      x: 2
+      x: 4
       y: 2
     color:
       serializedVersion: 2
       rgba: 2164238336
-    noiseLowIntensity: 0.103
-    noiseMidIntensity: 0.251
-    noiseHighIntensity: 0.408
+    noiseLowIntensity: 0
+    noiseMidIntensity: 0
+    noiseHighIntensity: 0
   - type: 4
     matType: 1
     moveFlag: 0

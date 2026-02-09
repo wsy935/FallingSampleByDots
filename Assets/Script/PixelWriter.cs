@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using Pixel;
 using Unity.Collections;
+using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -14,17 +16,18 @@ public class PixelWriter : MonoBehaviour
     [SerializeField] private int brushSize = 3;
 
     private Camera mainCamera;
-    private NativeArray<PixelData> buffer;
-    private FallingSandWorld fsw;
-    private DirtyChunkManager dirtyChunkManager;
+    private DynamicBuffer<PixelData> buffer;
+    private DynamicBuffer<Chunk> chunks;
+    private WorldConfig worldConfig;
     private Unity.Mathematics.Random random;
 
     private void Start()
     {
         mainCamera = Camera.main;
-        fsw = FallingSandWorld.Instance;
-        dirtyChunkManager = fsw.DirtyChunkManager;
-        buffer = fsw.PixelBuffer.buffer;
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        buffer = em.GetSingletonBuffer<PixelData>();
+        worldConfig = em.GetSingletonComponent<WorldConfig>();
+        chunks = em.GetSingletonBuffer<Chunk>();
         random = new Unity.Mathematics.Random((uint)System.DateTime.Now.Ticks);
     }
 
@@ -45,10 +48,7 @@ public class PixelWriter : MonoBehaviour
             Vector2 worldPos = GetMouseWorldPosition();
             WritePixel(worldPos, PixelType.Empty);
         }
-
-        if (keyboard[Key.F].isPressed) FillAll();
-        if (keyboard[Key.A].isPressed) Add();
-        if (keyboard[Key.S].isPressed) AddOne();
+        
         // 数字键切换像素类型        
         if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
         if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
@@ -61,6 +61,10 @@ public class PixelWriter : MonoBehaviour
         {
             brushSize = Mathf.Clamp(brushSize + (int)Mathf.Sign(scroll), 1, 20);
         }
+
+        if (keyboard[Key.F].isPressed) FillAll();
+        if (keyboard[Key.A].isPressed) WritePixel(new(255,255),pixelType,brushSize);
+        if (keyboard[Key.S].isPressed) WritePixel(new(255,255),pixelType,1);
     }
 
     /// <summary>
@@ -72,54 +76,15 @@ public class PixelWriter : MonoBehaviour
         Vector3 worldPos = mainCamera.ScreenToWorldPoint(mousePos);
 
         // 转换为像素坐标（假设sprite的pivot在中心）
-        float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
-        var worldConfig = fsw.WorldConfig;
+        float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;        
         int pixelX = Mathf.FloorToInt(worldPos.x * pixelPerUnit + (worldConfig.width / 2));
         int pixelY = Mathf.FloorToInt(worldPos.y * pixelPerUnit + (worldConfig.height / 2));
 
         return new Vector2(pixelX, pixelY);
     }
 
-    private void AddOne()
-    {
-        var worldConfig = fsw.WorldConfig;
-        int startX = worldConfig.width >> 1;
-        int startY = worldConfig.height >> 1;
-        int idx = worldConfig.CoordsToIdx(startX, startY);
-        buffer[idx] = new()
-        {
-            type = pixelType,
-            frameIdx = buffer[idx].frameIdx,
-            seed = (byte)random.NextInt(0, 256)
-        };
-        dirtyChunkManager.AddChunk(new(startX, startY, 1, 1));
-    }
-
-    private void Add()
-    {
-        var worldConfig = fsw.WorldConfig;
-        int startX = worldConfig.width >> 1;
-        int startY = worldConfig.height >> 1;
-        for (int i = 0; i < brushSize; i++)
-        {
-            for (int j = 0; j < brushSize; j++)
-            {
-                int idx = worldConfig.CoordsToIdx(j + startX, i + startY);
-                buffer[idx] = new()
-                {
-                    type = pixelType,
-                    frameIdx = buffer[idx].frameIdx,
-                    seed = (byte)random.NextInt(0, 256)
-                };
-            }
-        }
-        dirtyChunkManager.AddChunk(new(startX, startY, brushSize, brushSize));
-    }
-
     private void FillAll()
     {
-        var worldConfig = fsw.WorldConfig;
-        dirtyChunkManager.ForceClear();
         for (int i = 0; i < worldConfig.height; i++)
         {
             for (int j = 0; j < worldConfig.width; j++)
@@ -133,45 +98,56 @@ public class PixelWriter : MonoBehaviour
                 };
             }
         }
-        dirtyChunkManager.AddChunk(new(0, 0, worldConfig.width, worldConfig.height));
+        for(int i = 0; i < chunks.Length; i++)
+        {
+            var chunk = chunks[i];
+            chunk.isDirty = true;
+            chunks[i] = chunk;
+        }
     }
 
     /// <summary>
     /// 在指定世界坐标写入像素（支持笔刷）
     /// </summary>
-    public void WritePixel(Vector2 worldPos, PixelType type)
+    public void WritePixel(Vector2 worldPos, PixelType type,int size = -1)
     {
         int centerX = (int)worldPos.x;
         int centerY = (int)worldPos.y;
 
         // 使用圆形笔刷
-        int size = brushSize * 2 + 1;
-        Rect rect = new(centerX - brushSize, centerY - brushSize, size, size);
-        rect = rect.Clamp(new(0, 0, fsw.WorldConfig.width, fsw.WorldConfig.height));
-        if (rect.width > 0 && rect.height > 0)
-            fsw.DirtyChunkManager.AddChunk(new(rect));
-        for (int dy = -brushSize; dy <= brushSize; dy++)
+        size = size == -1 ? brushSize : size;
+        HashSet<int> dirtyChunks = new();
+        for (int dy = -size; dy <= size; dy++)
         {
-            for (int dx = -brushSize; dx <= brushSize; dx++)
+            for (int dx = -size; dx <= size; dx++)
             {
                 // 圆形判断
-                if (dx * dx + dy * dy > brushSize * brushSize)
+                if (dx * dx + dy * dy > size * size)
                     continue;
 
                 int x = centerX + dx;
                 int y = centerY + dy;
-                if (!fsw.WorldConfig.IsInWorld(x, y))
+                if (!worldConfig.IsInWorld(x, y))
                     continue;
-                int idx = fsw.WorldConfig.CoordsToIdx(x, y);
+                int idx = worldConfig.CoordsToIdx(x, y);
                 buffer[idx] = new()
                 {
                     type = type,
                     frameIdx = buffer[idx].frameIdx,
                     seed = (byte)random.NextInt(0, 256)
                 };
+
+                int chunkIdx = worldConfig.GetChunkIdx(x, y);
+                dirtyChunks.Add(chunkIdx);
             }
         }
 
+        foreach(var idx in dirtyChunks)
+        {
+            var chunk = chunks[idx];
+            chunk.isDirty = true;
+            chunks[idx] = chunk;
+        }
     }
 
     private void OnGUI()

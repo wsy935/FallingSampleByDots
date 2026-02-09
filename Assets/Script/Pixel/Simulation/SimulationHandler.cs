@@ -1,5 +1,6 @@
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Entities;
 using Unity.Mathematics;
 using Random = Unity.Mathematics.Random;
 namespace Pixel
@@ -8,7 +9,8 @@ namespace Pixel
     public struct SimulationHandler
     {
         public PixelConfigLookup pixelConfigLookup;
-        public NativeArray<PixelData> buffer;
+        public DynamicBuffer<PixelData> buffer;
+        public DynamicBuffer<Chunk> chunks;
         public WorldConfig worldConfig;
         public Random random;
         public uint frameIdx;
@@ -16,7 +18,7 @@ namespace Pixel
         #region 基础工具方法
 
         [BurstCompile]
-        private PixelData GetPixelData(int x, int y)
+        private PixelData GetPixel(int x, int y)
         {
             int idx = worldConfig.CoordsToIdx(x, y);
             if (idx >= 0 && idx < buffer.Length)
@@ -38,15 +40,16 @@ namespace Pixel
             if (!worldConfig.IsInWorld(tarX, tarY)) return false;
 
             int tarIdx = worldConfig.CoordsToIdx(tarX, tarY);
-            PixelData tarPixelData = buffer[tarIdx];
+            PixelData tarPixel = buffer[tarIdx];
 
-            if (tarPixelData.frameIdx == frameIdx && tarPixelData.type != PixelType.Empty)
+            if (tarPixel.type == PixelType.Empty)
+                return true;
+            if (tarPixel.frameIdx == frameIdx && tarPixel.type != PixelType.Empty)
                 return false;
 
-            var tarConfig = pixelConfigLookup.GetConfig(tarPixelData.type);
-
+            var tarConfig = pixelConfigLookup.GetConfig(tarPixel.type);
             bool canMove = srcConfig.matType == MaterialType.Gas
-                ? (tarConfig.matType == MaterialType.Gas && srcConfig.density < tarConfig.density) || tarPixelData.type == PixelType.Empty
+                ? (tarConfig.matType == MaterialType.Gas && srcConfig.density < tarConfig.density) || tarPixel.type == PixelType.Empty
                 : srcConfig.density > tarConfig.density;
 
             return canMove;
@@ -62,25 +65,25 @@ namespace Pixel
             if (!worldConfig.IsInWorld(tarX, tarY)) return false;
 
             int tarIdx = worldConfig.CoordsToIdx(tarX, tarY);
-            PixelData tarPixelData = buffer[tarIdx];
+            PixelData tarPixel = buffer[tarIdx];
 
-            if (tarPixelData.frameIdx == frameIdx && tarPixelData.type != PixelType.Empty)
+            if (tarPixel.frameIdx == frameIdx && tarPixel.type != PixelType.Empty)
                 return false;
 
-            var tarConfig = pixelConfigLookup.GetConfig(tarPixelData.type);
+            var tarConfig = pixelConfigLookup.GetConfig(tarPixel.type);
 
             bool canMove = srcConfig.matType == MaterialType.Gas
-                ? (tarConfig.matType == MaterialType.Gas && srcConfig.density < tarConfig.density) || tarPixelData.type == PixelType.Empty
+                ? (tarConfig.matType == MaterialType.Gas && srcConfig.density < tarConfig.density) || tarPixel.type == PixelType.Empty
                 : srcConfig.density > tarConfig.density;
 
             if (!canMove) return false;
 
             int srcIdx = worldConfig.CoordsToIdx(srcX, srcY);
-            PixelData srcPixelData = buffer[srcIdx];
+            PixelData srcPixel = buffer[srcIdx];
 
-            tarPixelData.frameIdx = frameIdx;
-            srcPixelData.frameIdx = frameIdx;
-            (buffer[srcIdx], buffer[tarIdx]) = (tarPixelData, srcPixelData);
+            tarPixel.frameIdx = frameIdx;
+            srcPixel.frameIdx = frameIdx;
+            (buffer[srcIdx], buffer[tarIdx]) = (tarPixel, srcPixel);
 
             return true;
         }
@@ -131,7 +134,7 @@ namespace Pixel
                 // 检查水平基础点 (targetX, curY) 是否可达
                 if (!CanMoveTo(in srcConfig, targetX, curY))
                     break;
-                
+
                 // 在偏移列上纯垂直逐步移动
                 bool stepComplete = true;
                 for (int j = 0; j < yDistance; j++)
@@ -147,9 +150,9 @@ namespace Pixel
 
                 // 如果垂直部分未完成，停止整个斜向移动
                 if (!stepComplete)
-                    break;     
+                    break;
 
-                curX = targetX;                         
+                curX = targetX;
             }
 
             return new int2(curX, curY);
@@ -167,7 +170,7 @@ namespace Pixel
                 int nextX = curX + offset;
 
                 // 检查目标位置下方是否有支撑
-                PixelData basePixel = GetPixelData(nextX, y - 1);
+                PixelData basePixel = GetPixel(nextX, y - 1);
                 if (basePixel.type == PixelType.Disable || basePixel.type == PixelType.Empty)
                     break;
 
@@ -205,7 +208,7 @@ namespace Pixel
                 if (math.any(target != origin))
                     return target;
             }
-            if ((config.moveFlag & MoveFlag.Up) == MoveFlag.Down)
+            if ((config.moveFlag & MoveFlag.Up) == MoveFlag.Up)
             {
                 target = MoveVertical(x, y, config, isDown: false);
                 if (math.any(target != origin))
