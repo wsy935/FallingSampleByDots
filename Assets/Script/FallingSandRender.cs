@@ -13,12 +13,9 @@ public class FallingSandRender : MonoBehaviour
     Material material;
     MaterialPropertyBlock mpb;
 
-    private WorldConfig worldConfig;
-    private DynamicBuffer<Chunk> chunks;
-
     [Header("渲染设置")]
     public int pixelPerUnit = 100;
-    
+
     [Header("Shader 引用")]
     [SerializeField] private Shader fallingSandShader;
 
@@ -27,6 +24,9 @@ public class FallingSandRender : MonoBehaviour
     public Color dirtyChunkColor = new Color(1f, 0f, 0f, 0.3f);
 
     public Texture2D Tex => tex;
+
+    private EntityQuery worldConfigQuery;
+    private EntityQuery chunksQuery;
 
     private void Awake()
     {
@@ -39,11 +39,13 @@ public class FallingSandRender : MonoBehaviour
     private void Start()
     {
         var fsw = FallingSandWorld.Instance;
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
         sr = GetComponent<SpriteRenderer>();
-        worldConfig = em.GetSingletonComponent<WorldConfig>();
-        chunks = em.GetSingletonBuffer<Chunk>();
 
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        worldConfigQuery = em.CreateEntityQuery(typeof(WorldConfig));
+        chunksQuery = em.CreateEntityQuery(typeof(Chunk));
+
+        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
         // 创建数据纹理 (CPU 写入编码数据, Shader 解码)
         tex = new Texture2D(worldConfig.width, worldConfig.height, TextureFormat.RGBA32, false, true)
         {
@@ -121,10 +123,7 @@ public class FallingSandRender : MonoBehaviour
         foreach (var config in pixelSet.configs)
         {
             int row = (int)config.type;
-            colorLUT.SetPixel(0, row, config.color);                                          // 列0: baseColor
-            colorLUT.SetPixel(1, row, new Color(config.noiseLowIntensity, 0, 0, 1));          // 列1: 低频噪声强度
-            colorLUT.SetPixel(2, row, new Color(config.noiseMidIntensity, 0, 0, 1));           // 列2: 中频噪声强度
-            colorLUT.SetPixel(3, row, new Color(config.noiseHighIntensity, 0, 0, 1));          // 列3: 高频噪声强度
+            colorLUT.SetPixel(0, row, config.color);
         }
 
         colorLUT.Apply(false);
@@ -144,8 +143,13 @@ public class FallingSandRender : MonoBehaviour
         }
     }
 
+#if UNITY_EDITOR
     void OnDrawGizmos()
     {
+        if (!Application.isPlaying)
+            return;
+        var chunks = chunksQuery.GetSingletonBuffer<Chunk>();
+        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
         if (!chunks.IsCreated) return;
 
         float size = (float)worldConfig.chunkSize / pixelPerUnit;
@@ -157,12 +161,13 @@ public class FallingSandRender : MonoBehaviour
             float x = (float)(coord.x - (worldConfig.width >> 1)) / pixelPerUnit;
             float y = (float)(coord.y - (worldConfig.height >> 1)) / pixelPerUnit;
 
-            Gizmos.color = ((chunks[i].pos.x+chunks[i].pos.y) & 1) == 0 ? Color.black : Color.white;
+            Gizmos.color = ((chunks[i].pos.x + chunks[i].pos.y) & 1) == 0 ? Color.black : Color.white;
 
             Gizmos.DrawLine(new(x, y), new(x, y + size));
             Gizmos.DrawLine(new(x, y), new(x + size, y));
             Gizmos.DrawLine(new(x + size, y), new(x + size, y + size));
-            Gizmos.DrawLine(new(x, y+size), new(x + size, y + size));
-        }        
+            Gizmos.DrawLine(new(x, y + size), new(x + size, y + size));
+        }
     }
+#endif
 }

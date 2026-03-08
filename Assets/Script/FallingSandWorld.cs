@@ -12,13 +12,8 @@ public class FallingSandWorld : MonoBehaviour
     [Header("世界设置")]
     [SerializeField] private int worldWidth = 256;
     [SerializeField] private int worldHeight = 256;
-    [SerializeField] private int stepTimes = 2;
-    [SerializeField] private PixelSet pixelSet;
 
-    [Header("脏区块设置")]
-    [SerializeField] private int maxChunkSize = 128;
-    [SerializeField] private int chunkBorder = 1;
-    [SerializeField] private int gridSize = 64;
+    [SerializeField] private PixelSet pixelSet;
 
     [Header("像素区块设置")]
     [SerializeField] private int chunkSize;
@@ -65,7 +60,7 @@ public class FallingSandWorld : MonoBehaviour
             (worldHeight + chunkSize - 1) / chunkSize
         );
         var chunkBuffer = em.GetBuffer<Chunk>(em.CreateSingletonBuffer<Chunk>());
-        chunkBuffer.EnsureCapacity(chunkCnt.x * chunkCnt.y);        
+        chunkBuffer.EnsureCapacity(chunkCnt.x * chunkCnt.y);
         for (int i = 0; i < chunkCnt.y; i++)
         {
             for (int j = 0; j < chunkCnt.x; j++)

@@ -17,11 +17,9 @@ namespace Pixel
         private uint frameIdx;
         private Random random;
         private BitMap bitMap;
-        bool isInit;        
-        
+
         public void OnCreate(ref SystemState state)
         {
-            isInit = false;
             frameIdx = (uint)DateTime.Now.Ticks;
             random = new(frameIdx);
             state.RequireForUpdate<WorldConfig>();
@@ -32,11 +30,10 @@ namespace Pixel
         {
             bitMap.Dispose();
         }
-        
+
         public void OnUpdate(ref SystemState state)
         {
-            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;            
-            Profiler.BeginSample("SetHandler");
+            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
             var handler = new SimulationHandler()
             {
                 pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
@@ -46,13 +43,14 @@ namespace Pixel
                 frameIdx = frameIdx,
                 random = random
             };
-            Profiler.EndSample();
+
             var job = new SimulateJob
             {
                 handler = handler,
             };
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 12; i++)
             {
+                job.stats = i / 4;
                 job.updateBlack = (i & 1) == 0;
                 state.Dependency = job.Schedule(handler.chunks.Length, 4, state.Dependency);
                 state.CompleteDependency();
@@ -65,6 +63,8 @@ namespace Pixel
     {
         [NativeDisableParallelForRestriction] public SimulationHandler handler;
         public bool updateBlack;
+        //0 更新垂直落体，1更新斜向，2更新水平运动
+        public int stats;
 
         [BurstCompile]
         public void Execute(int index)
@@ -81,8 +81,6 @@ namespace Pixel
                 for (int j = 0; j < chunkSize; j++)
                 {
                     int2 pos = worldConfig.GetCoordsByChunk(chunk.pos, j, i);
-                    if (!worldConfig.IsInWorld(pos.x, pos.y)) continue;
-
                     int idx = worldConfig.CoordsToIdx(pos.x, pos.y);
                     var pixel = handler.buffer[idx];
                     if (pixel.frameIdx == handler.frameIdx)
@@ -90,13 +88,23 @@ namespace Pixel
                         hasChange = true;
                         continue;
                     }
-                    PixelConfig config = handler.pixelConfigLookup.GetConfig(pixel.type);
 
-                    var newPos = handler.HandleMove(pos.x, pos.y, config);
+                    PixelConfig config = handler.pixelConfigLookup.GetConfig(pixel.type);
+                    if (config.isStatic)
+                        continue;
+                    var newPos = stats switch
+                    {
+                        0 => handler.MoveVertical(pos.x, pos.y, config),
+                        1 => handler.MoveDiagonal(pos.x, pos.y, config),
+                        2 => handler.MoveHorizontal(pos.x, pos.y, config),
+                        _ => pos
+                    };
+
 
                     if (math.any(pos != newPos))
                     {
                         hasChange = true;
+
                         //跨越到其他块
                         int chunkIdx = worldConfig.GetChunkIdx(newPos.x, newPos.y);
                         if (chunkIdx != index)
@@ -115,11 +123,11 @@ namespace Pixel
                     }
                 }
             }
-            chunk.isDirty = hasChange;
-            handler.chunks[index] = chunk;
+
+            // chunk.isDirty = hasChange;
+            // handler.chunks[index] = chunk;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void NotifyNeighBour(int idx)
         {
             if (idx < 0 || idx >= handler.chunks.Length) return;

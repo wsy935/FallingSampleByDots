@@ -9,7 +9,7 @@ namespace Pixel
 {
     [UpdateBefore(typeof(SimulationSystem))]
     public partial class RenderSystem : SystemBase
-    {                                    
+    {
         protected override void OnUpdate()
         {
             var tex = FallingSandRender.Instance.Tex;
@@ -37,7 +37,7 @@ namespace Pixel
     /// </summary>
     [BurstCompile]
     public struct ExtractPixelJob : IJobParallelFor
-    {        
+    {
         [NativeDisableParallelForRestriction] public NativeArray<Color32> renderBuffer;
         [ReadOnly] public DynamicBuffer<PixelData> buffer;
         [ReadOnly] public DynamicBuffer<Chunk> chunks;

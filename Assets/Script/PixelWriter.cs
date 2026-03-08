@@ -15,20 +15,17 @@ public class PixelWriter : MonoBehaviour
     [SerializeField] private PixelType pixelType = PixelType.Sand;
     [SerializeField] private int brushSize = 3;
 
-    private Camera mainCamera;
-    private DynamicBuffer<PixelData> buffer;
-    private DynamicBuffer<Chunk> chunks;
-    private WorldConfig worldConfig;
     private Unity.Mathematics.Random random;
-
+    private EntityQuery worldConfigQuery,
+                        chunkQuery,
+                        bufferQuery;
     private void Start()
     {
-        mainCamera = Camera.main;
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        buffer = em.GetSingletonBuffer<PixelData>();
-        worldConfig = em.GetSingletonComponent<WorldConfig>();
-        chunks = em.GetSingletonBuffer<Chunk>();
         random = new Unity.Mathematics.Random((uint)System.DateTime.Now.Ticks);
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+        worldConfigQuery = em.CreateEntityQuery(typeof(WorldConfig));
+        chunkQuery = em.CreateEntityQuery(typeof(Chunk));
+        bufferQuery = em.CreateEntityQuery(typeof(PixelData));
     }
 
     private void Update()
@@ -48,7 +45,7 @@ public class PixelWriter : MonoBehaviour
             Vector2 worldPos = GetMouseWorldPosition();
             WritePixel(worldPos, PixelType.Empty);
         }
-        
+
         // 数字键切换像素类型        
         if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
         if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
@@ -63,8 +60,8 @@ public class PixelWriter : MonoBehaviour
         }
 
         if (keyboard[Key.F].isPressed) FillAll();
-        if (keyboard[Key.A].isPressed) WritePixel(new(255,255),pixelType,brushSize);
-        if (keyboard[Key.S].isPressed) WritePixel(new(255,255),pixelType,1);
+        if (keyboard[Key.A].isPressed) WritePixel(new(255, 255), pixelType, brushSize);
+        if (keyboard[Key.S].isPressed) WritePixel(new(255, 255), pixelType, 1);
     }
 
     /// <summary>
@@ -73,7 +70,9 @@ public class PixelWriter : MonoBehaviour
     private Vector2 GetMouseWorldPosition()
     {
         Vector2 mousePos = Mouse.current.position.value;
-        Vector3 worldPos = mainCamera.ScreenToWorldPoint(mousePos);
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
+
+        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
 
         // 转换为像素坐标（假设sprite的pivot在中心）
         float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
@@ -85,6 +84,10 @@ public class PixelWriter : MonoBehaviour
 
     private void FillAll()
     {
+        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
+        var buffer = bufferQuery.GetSingletonBuffer<PixelData>();
+        var chunks = chunkQuery.GetSingletonBuffer<Chunk>();
+
         for (int i = 0; i < worldConfig.height; i++)
         {
             for (int j = 0; j < worldConfig.width; j++)
@@ -98,7 +101,7 @@ public class PixelWriter : MonoBehaviour
                 };
             }
         }
-        for(int i = 0; i < chunks.Length; i++)
+        for (int i = 0; i < chunks.Length; i++)
         {
             var chunk = chunks[i];
             chunk.isDirty = true;
@@ -109,10 +112,14 @@ public class PixelWriter : MonoBehaviour
     /// <summary>
     /// 在指定世界坐标写入像素（支持笔刷）
     /// </summary>
-    public void WritePixel(Vector2 worldPos, PixelType type,int size = -1)
+    public void WritePixel(Vector2 worldPos, PixelType type, int size = -1)
     {
         int centerX = (int)worldPos.x;
         int centerY = (int)worldPos.y;
+        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
+        var buffer = bufferQuery.GetSingletonBuffer<PixelData>();
+        var chunks = chunkQuery.GetSingletonBuffer<Chunk>();
+
 
         // 使用圆形笔刷
         size = size == -1 ? brushSize : size;
@@ -142,7 +149,7 @@ public class PixelWriter : MonoBehaviour
             }
         }
 
-        foreach(var idx in dirtyChunks)
+        foreach (var idx in dirtyChunks)
         {
             var chunk = chunks[idx];
             chunk.isDirty = true;
