@@ -104,7 +104,7 @@ public class PixelWriter : MonoBehaviour
         for (int i = 0; i < chunks.Length; i++)
         {
             var chunk = chunks[i];
-            chunk.isDirty = true;
+            chunk.forceDiryFrame = Time.frameCount;
             chunks[i] = chunk;
         }
     }
@@ -119,7 +119,6 @@ public class PixelWriter : MonoBehaviour
         var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
         var buffer = bufferQuery.GetSingletonBuffer<PixelData>();
         var chunks = chunkQuery.GetSingletonBuffer<Chunk>();
-
 
         // 使用圆形笔刷
         size = size == -1 ? brushSize : size;
@@ -144,7 +143,7 @@ public class PixelWriter : MonoBehaviour
                     seed = (byte)random.NextInt(0, 256)
                 };
 
-                int chunkIdx = worldConfig.GetChunkIdx(x, y);
+                int chunkIdx = worldConfig.GetChunkIdxByWorld(x, y);
                 dirtyChunks.Add(chunkIdx);
             }
         }
@@ -152,7 +151,7 @@ public class PixelWriter : MonoBehaviour
         foreach (var idx in dirtyChunks)
         {
             var chunk = chunks[idx];
-            chunk.isDirty = true;
+            chunk.forceDiryFrame = Time.frameCount;
             chunks[idx] = chunk;
         }
     }

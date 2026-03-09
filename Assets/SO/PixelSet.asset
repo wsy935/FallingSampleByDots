@@ -15,8 +15,7 @@ MonoBehaviour:
   configs:
   - type: 1
     matType: 0
-    moveFlag: 0
-    interactionFlag: 0
+    isStatic: 0
     density: 1
     speed:
       x: 0
@@ -26,8 +25,7 @@ MonoBehaviour:
       rgba: 16777215
   - type: 2
     matType: 1
-    moveFlag: 19
-    interactionFlag: 1
+    isStatic: 0
     density: 1000
     speed:
       x: 0
@@ -37,8 +35,7 @@ MonoBehaviour:
       rgba: 4280329690
   - type: 3
     matType: 2
-    moveFlag: 26
-    interactionFlag: 1
+    isStatic: 0
     density: 100
     speed:
       x: 4
@@ -48,8 +45,7 @@ MonoBehaviour:
       rgba: 2164238336
   - type: 4
     matType: 1
-    moveFlag: 0
-    interactionFlag: 1
+    isStatic: 1
     density: 10000
     speed:
       x: 0

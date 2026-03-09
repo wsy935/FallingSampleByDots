@@ -21,7 +21,6 @@ public class FallingSandWorld : MonoBehaviour
     private PixelConfigLookup pixelLookup;
 
     public static FallingSandWorld Instance { get; private set; }
-
     public PixelSet PixelSet => pixelSet;
 
     void Awake()
@@ -68,7 +67,7 @@ public class FallingSandWorld : MonoBehaviour
                 var chunk = new Chunk()
                 {
                     pos = new(j, i),
-                    isDirty = true,
+                    forceDiryFrame = Time.frameCount,
                     isBlack = ((i + j) & 1) == 0
                 };
                 chunkBuffer.Add(chunk);

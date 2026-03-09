@@ -155,7 +155,7 @@ public class FallingSandRender : MonoBehaviour
         float size = (float)worldConfig.chunkSize / pixelPerUnit;
         for (int i = 0; i < chunks.Length; i++)
         {
-            if (!chunks[i].isDirty) continue;
+            if (!chunks[i].IsDirty(Time.frameCount)) continue;
 
             int2 coord = worldConfig.GetCoordsByChunk(chunks[i].pos, 0, 0);
             float x = (float)(coord.x - (worldConfig.width >> 1)) / pixelPerUnit;

@@ -4,26 +4,21 @@ using Unity.Collections;
 using Unity.Mathematics;
 using System;
 
-using Random = Unity.Mathematics.Random;
 using Unity.Jobs;
 using UnityEngine;
-using System.Runtime.CompilerServices;
-using UnityEngine.Profiling;
+
 namespace Pixel
 {
     [BurstCompile]
     public partial struct SimulationSystem : ISystem
     {
-        private uint frameIdx;
-        private Random random;
         private BitMap bitMap;
-
+        private uint timeOffset;
         public void OnCreate(ref SystemState state)
         {
-            frameIdx = (uint)DateTime.Now.Ticks;
-            random = new(frameIdx);
             state.RequireForUpdate<WorldConfig>();
             state.RequireForUpdate<PixelConfigLookup>();
+            timeOffset = (uint)DateTime.Now.Ticks;
         }
 
         public void OnDestroy(ref SystemState state)
@@ -31,22 +26,23 @@ namespace Pixel
             bitMap.Dispose();
         }
 
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            frameIdx = frameIdx == uint.MaxValue ? 1 : frameIdx + 1;
             var handler = new SimulationHandler()
             {
                 pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
                 buffer = SystemAPI.GetSingletonBuffer<PixelData>(),
                 chunks = SystemAPI.GetSingletonBuffer<Chunk>(),
                 worldConfig = SystemAPI.GetSingleton<WorldConfig>(),
-                frameIdx = frameIdx,
-                random = random
+                frameCount = Time.frameCount,
+                random = new(timeOffset + (uint)Time.frameCount)
             };
 
             var job = new SimulateJob
             {
                 handler = handler,
+                frameCount = Time.frameCount
             };
             for (int i = 0; i < 12; i++)
             {
@@ -63,6 +59,7 @@ namespace Pixel
     {
         [NativeDisableParallelForRestriction] public SimulationHandler handler;
         public bool updateBlack;
+        public int frameCount;
         //0 更新垂直落体，1更新斜向，2更新水平运动
         public int stats;
 
@@ -71,9 +68,10 @@ namespace Pixel
         {
             var chunk = handler.chunks[index];
             if (updateBlack != chunk.isBlack) return;
-            // if (!chunk.isDirty) return;
+            if (!chunk.IsDirty(frameCount)) return;
 
             var worldConfig = handler.worldConfig;
+            int2 originPos = worldConfig.GetCoordsByChunk(chunk.pos, 0, 0);
             int chunkSize = worldConfig.chunkSize;
             bool hasChange = false;
             for (int i = 0; i < chunkSize; i++)
@@ -83,7 +81,7 @@ namespace Pixel
                     int2 pos = worldConfig.GetCoordsByChunk(chunk.pos, j, i);
                     int idx = worldConfig.CoordsToIdx(pos.x, pos.y);
                     var pixel = handler.buffer[idx];
-                    if (pixel.frameIdx == handler.frameIdx)
+                    if (pixel.frameIdx == frameCount)
                     {
                         hasChange = true;
                         continue;
@@ -100,39 +98,44 @@ namespace Pixel
                         _ => pos
                     };
 
-
                     if (math.any(pos != newPos))
                     {
                         hasChange = true;
 
-                        //跨越到其他块
-                        int chunkIdx = worldConfig.GetChunkIdx(newPos.x, newPos.y);
-                        if (chunkIdx != index)
-                            NotifyNeighBour(chunkIdx);
+                        //当前块的边界更新或者移动到边界外时需要设置邻居
+                        if (j == 0 || newPos.x <= originPos.x)
+                            NotifyNeighBour(new(chunk.pos.x - 1, chunk.pos.y));
+                        else if (j == chunkSize - 1 || newPos.x >= originPos.x + worldConfig.chunkSize - 1)
+                            NotifyNeighBour(new(chunk.pos.x + 1, chunk.pos.y));
 
-                        //当前块的边界更新时需要设置邻居
-                        if (j == 0)
-                            NotifyNeighBour(index - 1);
-                        else if (j == chunkSize - 1)
-                            NotifyNeighBour(index + 1);
-
-                        if (i == 0)
-                            NotifyNeighBour(index - worldConfig.chunkCnt.x);
-                        else if (i == chunkSize - 1)
-                            NotifyNeighBour(index + worldConfig.chunkCnt.x);
+                        if (i == 0 || newPos.y <= originPos.y)
+                            NotifyNeighBour(new(chunk.pos.x, chunk.pos.y - 1));
+                        else if (i == chunkSize - 1 || newPos.y >= originPos.y + worldConfig.chunkSize - 1)
+                            NotifyNeighBour(new(chunk.pos.x, chunk.pos.y + 1));
                     }
                 }
             }
-
-            // chunk.isDirty = hasChange;
-            // handler.chunks[index] = chunk;
+            switch (stats)
+            {
+                case 0:
+                    chunk.isVerticalChange = hasChange;
+                    break;
+                case 1:
+                    chunk.isDiagonalChange = hasChange;
+                    break;
+                case 2:
+                    chunk.isHorizontalChange = hasChange;
+                    break;
+            }
+            handler.chunks[index] = chunk;
         }
 
-        private void NotifyNeighBour(int idx)
+        private void NotifyNeighBour(int2 chunkPos)
         {
-            if (idx < 0 || idx >= handler.chunks.Length) return;
+            int idx = handler.worldConfig.GetChunkIdxByChunkPos(chunkPos);
+            if (idx == -1) return;
             var neighbourChunk = handler.chunks[idx];
-            neighbourChunk.isDirty = true;
+            neighbourChunk.forceDiryFrame = frameCount;
             handler.chunks[idx] = neighbourChunk;
         }
     }

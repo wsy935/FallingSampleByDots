@@ -20,7 +20,8 @@ namespace Pixel
                 renderBuffer = renderBuffer,
                 buffer = SystemAPI.GetSingletonBuffer<PixelData>(),
                 chunks = chunks,
-                worldConfig = SystemAPI.GetSingleton<WorldConfig>()
+                worldConfig = SystemAPI.GetSingleton<WorldConfig>(),
+                frameCount = UnityEngine.Time.frameCount
             };
             Dependency = job.Schedule(chunks.Length, 4, Dependency);
             CompleteDependency();
@@ -42,12 +43,13 @@ namespace Pixel
         [ReadOnly] public DynamicBuffer<PixelData> buffer;
         [ReadOnly] public DynamicBuffer<Chunk> chunks;
         [ReadOnly] public WorldConfig worldConfig;
+        [ReadOnly] public int frameCount;
 
         [BurstCompile]
         public void Execute(int index)
         {
             var chunk = chunks[index];
-            if (!chunk.isDirty) return;
+            if (!chunk.IsDirty(frameCount)) return;
 
             int chunkSize = worldConfig.chunkSize;
 

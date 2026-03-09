@@ -13,8 +13,9 @@ namespace Pixel
         public DynamicBuffer<PixelData> buffer;
         public DynamicBuffer<Chunk> chunks;
         public WorldConfig worldConfig;
+        public int frameCount;
         public Random random;
-        public uint frameIdx;
+
 
         /// <summary>
         /// 纯检测：判断给定配置的源像素是否可以移动到 tar 位置
@@ -28,7 +29,7 @@ namespace Pixel
 
             if (tarPixel.type == PixelType.Empty)
                 return true;
-            if (tarPixel.frameIdx == frameIdx && tarPixel.type != PixelType.Empty)
+            if (tarPixel.frameIdx == frameCount && tarPixel.type != PixelType.Empty)
                 return false;
 
             var tarConfig = pixelConfigLookup.GetConfig(tarPixel.type);
@@ -58,8 +59,8 @@ namespace Pixel
             PixelData srcPixel = buffer[srcIdx];
             PixelData tarPixel = buffer[tarIdx];
 
-            srcPixel.frameIdx = frameIdx;
-            tarPixel.frameIdx = frameIdx;
+            srcPixel.frameIdx = frameCount;
+            tarPixel.frameIdx = frameCount;
 
             buffer[srcIdx] = tarPixel;
             buffer[tarIdx] = srcPixel;
