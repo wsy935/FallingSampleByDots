@@ -13,43 +13,195 @@ MonoBehaviour:
   m_Name: PixelSet
   m_EditorClassIdentifier: Assembly-CSharp::Pixel.PixelSet
   configs:
-  - type: 1
-    matType: 0
-    isStatic: 0
-    density: 1
-    speed:
-      x: 0
-      y: 0
-    color:
-      serializedVersion: 2
-      rgba: 16777215
-  - type: 2
-    matType: 1
-    isStatic: 0
-    density: 1000
-    speed:
-      x: 0
-      y: 2
-    color:
-      serializedVersion: 2
-      rgba: 4280329690
-  - type: 3
-    matType: 2
-    isStatic: 0
-    density: 100
-    speed:
-      x: 4
-      y: 2
-    color:
-      serializedVersion: 2
-      rgba: 2164238336
-  - type: 4
-    matType: 1
-    isStatic: 1
-    density: 10000
-    speed:
-      x: 0
-      y: 0
-    color:
-      serializedVersion: 2
-      rgba: 4288322202
+  - config:
+      type: 1
+      matType: 0
+      isStatic: 0
+      density: 0
+      speed:
+        x: 0
+        y: 0
+      color:
+        serializedVersion: 2
+        rgba: 16777215
+      tempConfig:
+        baseTemp: 0
+        maxTemp: 0
+        rate: 0
+    reactionRules: []
+  - config:
+      type: 2
+      matType: 1
+      isStatic: 0
+      density: 100
+      speed:
+        x: 0
+        y: 4
+      color:
+        serializedVersion: 2
+        rgba: 4278224828
+      tempConfig:
+        baseTemp: 0
+        maxTemp: 0
+        rate: 0
+    reactionRules: []
+  - config:
+      type: 3
+      matType: 2
+      isStatic: 0
+      density: 99
+      speed:
+        x: 4
+        y: 3
+      color:
+        serializedVersion: 2
+        rgba: 2164235776
+      tempConfig:
+        baseTemp: 0
+        maxTemp: 0
+        rate: 0
+    reactionRules:
+    - type: 1
+      effect: 2
+      min: 100
+      max: 100
+      product: 5
+      targetType: 0
+      selfProduct: 0
+      targetProduct: 0
+  - config:
+      type: 4
+      matType: 0
+      isStatic: 1
+      density: 1000
+      speed:
+        x: 0
+        y: 0
+      color:
+        serializedVersion: 2
+        rgba: 4285098345
+      tempConfig:
+        baseTemp: 0
+        maxTemp: 0
+        rate: 0
+    reactionRules: []
+  - config:
+      type: 5
+      matType: 3
+      isStatic: 0
+      density: -99
+      speed:
+        x: 4
+        y: 2
+      color:
+        serializedVersion: 2
+        rgba: 2698236883
+      tempConfig:
+        baseTemp: 0
+        maxTemp: 0
+        rate: 0
+    reactionRules:
+    - type: 4
+      effect: 2
+      min: 10
+      max: 15
+      product: 0
+      targetType: 0
+      selfProduct: 0
+      targetProduct: 0
+  - config:
+      type: 6
+      matType: 0
+      isStatic: 1
+      density: 0
+      speed:
+        x: 0
+        y: 0
+      color:
+        serializedVersion: 2
+        rgba: 2952807935
+      tempConfig:
+        baseTemp: 100
+        maxTemp: 1000
+        rate: 0
+    reactionRules:
+    - type: 1
+      effect: 1
+      min: 0
+      max: 0
+      product: 8
+      targetType: 0
+      selfProduct: 0
+      targetProduct: 0
+    - type: 0
+      effect: 2
+      min: 1.5
+      max: 2
+      product: 1
+      targetType: 0
+      selfProduct: 0
+      targetProduct: 0
+  - config:
+      type: 7
+      matType: 2
+      isStatic: 0
+      density: 100
+      speed:
+        x: 2
+        y: 2
+      color:
+        serializedVersion: 2
+        rgba: 4278190335
+      tempConfig:
+        baseTemp: 1000
+        maxTemp: 1000
+        rate: 0.1
+    reactionRules:
+    - type: 3
+      effect: 3
+      min: 0
+      max: 0
+      product: 0
+      targetType: 3
+      selfProduct: 9
+      targetProduct: 5
+  - config:
+      type: 8
+      matType: 3
+      isStatic: 0
+      density: -100
+      speed:
+        x: 3
+        y: 1
+      color:
+        serializedVersion: 2
+        rgba: 3355443200
+      tempConfig:
+        baseTemp: 0
+        maxTemp: 0
+        rate: 0
+    reactionRules:
+    - type: 4
+      effect: 2
+      min: 0.75
+      max: 1.5
+      product: 1
+      targetType: 0
+      selfProduct: 0
+      targetProduct: 0
+  - config:
+      type: 9
+      matType: 1
+      isStatic: 1
+      density: 1000
+      speed:
+        x: 0
+        y: 0
+      color:
+        serializedVersion: 2
+        rgba: 4282056738
+      tempConfig:
+        baseTemp: 23
+        maxTemp: 0
+        rate: 0
+    reactionRules: []

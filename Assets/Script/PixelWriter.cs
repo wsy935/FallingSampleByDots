@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Pixel;
 using Unity.Collections;
@@ -15,17 +16,24 @@ public class PixelWriter : MonoBehaviour
     [SerializeField] private PixelType pixelType = PixelType.Sand;
     [SerializeField] private int brushSize = 3;
 
-    private Unity.Mathematics.Random random;
-    private EntityQuery worldConfigQuery,
-                        chunkQuery,
-                        bufferQuery;
-    private void Start()
+    void OnEnable()
     {
-        random = new Unity.Mathematics.Random((uint)System.DateTime.Now.Ticks);
-        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        worldConfigQuery = em.CreateEntityQuery(typeof(WorldConfig));
-        chunkQuery = em.CreateEntityQuery(typeof(Chunk));
-        bufferQuery = em.CreateEntityQuery(typeof(PixelData));
+        Keyboard.current.onTextInput += SetPixelType;
+    }
+
+    void OnDisable()
+    {
+        Keyboard.current.onTextInput -= SetPixelType;
+    }
+
+    private void SetPixelType(char c)
+    {
+        if (char.IsDigit(c))
+        {
+            int val = c - '0';
+            val = val < 1 ? 1 : val;
+            pixelType = (PixelType)val;
+        }
     }
 
     private void Update()
@@ -45,12 +53,6 @@ public class PixelWriter : MonoBehaviour
             Vector2 worldPos = GetMouseWorldPosition();
             WritePixel(worldPos, PixelType.Empty);
         }
-
-        // 数字键切换像素类型        
-        if (keyboard[Key.Digit1].isPressed) pixelType = PixelType.Sand;
-        if (keyboard[Key.Digit2].isPressed) pixelType = PixelType.Water;
-        if (keyboard[Key.Digit3].isPressed) pixelType = PixelType.Wall;
-        if (keyboard[Key.Digit4].isPressed) pixelType = PixelType.Empty;
 
         // 鼠标滚轮调整笔刷大小
         float scroll = mouse.scroll.value.y;
@@ -72,7 +74,7 @@ public class PixelWriter : MonoBehaviour
         Vector2 mousePos = Mouse.current.position.value;
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
 
-        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
+        var worldConfig = FallingSandWorld.Instance.WorldConfig;
 
         // 转换为像素坐标（假设sprite的pivot在中心）
         float pixelPerUnit = FallingSandRender.Instance.pixelPerUnit;
@@ -84,21 +86,16 @@ public class PixelWriter : MonoBehaviour
 
     private void FillAll()
     {
-        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
-        var buffer = bufferQuery.GetSingletonBuffer<PixelData>();
-        var chunks = chunkQuery.GetSingletonBuffer<Chunk>();
+        var worldConfig = FallingSandWorld.Instance.WorldConfig;
+        var buffer = FallingSandWorld.Instance.PixelBuffer;
+        var chunks = FallingSandWorld.Instance.Chunks;
 
         for (int i = 0; i < worldConfig.height; i++)
         {
             for (int j = 0; j < worldConfig.width; j++)
             {
                 int idx = worldConfig.CoordsToIdx(j, i);
-                buffer[idx] = new()
-                {
-                    type = pixelType,
-                    frameIdx = buffer[idx].frameIdx,
-                    seed = (byte)random.NextInt(0, 256)
-                };
+                buffer[idx] = PixelData.NewPixel(pixelType, FallingSandWorld.Instance.PixelLookup.GetConfig(pixelType));
             }
         }
         for (int i = 0; i < chunks.Length; i++)
@@ -116,13 +113,12 @@ public class PixelWriter : MonoBehaviour
     {
         int centerX = (int)worldPos.x;
         int centerY = (int)worldPos.y;
-        var worldConfig = worldConfigQuery.GetSingleton<WorldConfig>();
-        var buffer = bufferQuery.GetSingletonBuffer<PixelData>();
-        var chunks = chunkQuery.GetSingletonBuffer<Chunk>();
+        var worldConfig = FallingSandWorld.Instance.WorldConfig;
+        var buffer = FallingSandWorld.Instance.PixelBuffer;
+        var chunks = FallingSandWorld.Instance.Chunks;
 
         // 使用圆形笔刷
         size = size == -1 ? brushSize : size;
-        HashSet<int> dirtyChunks = new();
         for (int dy = -size; dy <= size; dy++)
         {
             for (int dx = -size; dx <= size; dx++)
@@ -136,23 +132,13 @@ public class PixelWriter : MonoBehaviour
                 if (!worldConfig.IsInWorld(x, y))
                     continue;
                 int idx = worldConfig.CoordsToIdx(x, y);
-                buffer[idx] = new()
-                {
-                    type = type,
-                    frameIdx = 0,
-                    seed = (byte)random.NextInt(0, 256)
-                };
+                buffer[idx] = PixelData.NewPixel(type, FallingSandWorld.Instance.PixelLookup.GetConfig(type));
 
                 int chunkIdx = worldConfig.GetChunkIdxByWorld(x, y);
-                dirtyChunks.Add(chunkIdx);
+                var chunk = chunks[chunkIdx];
+                chunk.forceDiryFrame = Time.frameCount;
+                chunks[chunkIdx] = chunk;
             }
-        }
-
-        foreach (var idx in dirtyChunks)
-        {
-            var chunk = chunks[idx];
-            chunk.forceDiryFrame = Time.frameCount;
-            chunks[idx] = chunk;
         }
     }
 

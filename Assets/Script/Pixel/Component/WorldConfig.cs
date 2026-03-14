@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -16,7 +17,8 @@ namespace Pixel
         /// <summary>
         /// 世界坐标转化为下标        
         /// </summary>
-        public int CoordsToIdx(int x, int y)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly int CoordsToIdx(int x, int y)
         {
             return y * width + x;
         }
@@ -24,12 +26,13 @@ namespace Pixel
         /// <summary>
         /// chunk位置转化为chunk的下标        
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetChunkIdxByWorld(int x, int y)
         {
             int2 chunkPos = new(x / chunkSize, y / chunkSize);
             return chunkPos.y * chunkCnt.x + chunkPos.x;
         }
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetChunkIdxByChunkPos(int2 chunkPos)
         {
             if (chunkPos.x < 0 || chunkPos.x >= chunkCnt.x
@@ -40,7 +43,8 @@ namespace Pixel
 
         /// <summary>
         /// 根据chunk的局部坐标获取世界位置
-        /// </summary>        
+        /// </summary>       
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int2 GetCoordsByChunk(int2 chunkPos, int x, int y)
         {
             int worldX = x + chunkPos.x * chunkSize;
@@ -50,7 +54,8 @@ namespace Pixel
 
         /// <summary>
         /// 是否在世界中
-        /// </summary>        
+        /// </summary>      
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsInWorld(int x, int y)
         {
             return x >= 0 && x < width && y >= 0 && y < height;

@@ -10,9 +10,9 @@ using UnityEngine;
 namespace Pixel
 {
     [BurstCompile]
-    public partial struct SimulationSystem : ISystem
+    [UpdateAfter(typeof(ReactionSystem))]
+    public partial struct MoveSystem : ISystem
     {
-        private BitMap bitMap;
         private uint timeOffset;
         public void OnCreate(ref SystemState state)
         {
@@ -21,15 +21,10 @@ namespace Pixel
             timeOffset = (uint)DateTime.Now.Ticks;
         }
 
-        public void OnDestroy(ref SystemState state)
-        {
-            bitMap.Dispose();
-        }
-
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var handler = new SimulationHandler()
+            var handler = new MoveHandler()
             {
                 pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
                 buffer = SystemAPI.GetSingletonBuffer<PixelData>(),
@@ -39,12 +34,12 @@ namespace Pixel
                 random = new(timeOffset + (uint)Time.frameCount)
             };
 
-            var job = new SimulateJob
+            var job = new MoveJob
             {
                 handler = handler,
                 frameCount = Time.frameCount
             };
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < 8; i++)
             {
                 job.stats = i / 4;
                 job.updateBlack = (i & 1) == 0;
@@ -55,12 +50,12 @@ namespace Pixel
     }
 
     [BurstCompile]
-    public struct SimulateJob : IJobParallelFor
+    public struct MoveJob : IJobParallelFor
     {
-        [NativeDisableParallelForRestriction] public SimulationHandler handler;
+        [NativeDisableParallelForRestriction] public MoveHandler handler;
         public bool updateBlack;
         public int frameCount;
-        //0 更新垂直落体，1更新斜向，2更新水平运动
+        //0 更新垂直落体，1更新斜向+水平运动
         public int stats;
 
         [BurstCompile]
@@ -90,13 +85,18 @@ namespace Pixel
                     PixelConfig config = handler.pixelConfigLookup.GetConfig(pixel.type);
                     if (config.isStatic)
                         continue;
-                    var newPos = stats switch
+                    var newPos = pos;
+                    switch (stats)
                     {
-                        0 => handler.MoveVertical(pos.x, pos.y, config),
-                        1 => handler.MoveDiagonal(pos.x, pos.y, config),
-                        2 => handler.MoveHorizontal(pos.x, pos.y, config),
-                        _ => pos
-                    };
+                        case 0:
+                            newPos = handler.MoveVertical(pos.x, pos.y, config);
+                            break;
+                        case 1:
+                            newPos = handler.MoveDiagonal(pos.x, pos.y, config);
+                            if (math.all(newPos == pos))
+                                newPos = handler.MoveHorizontal(pos.x, pos.y, config);
+                            break;
+                    }
 
                     if (math.any(pos != newPos))
                     {
@@ -118,14 +118,11 @@ namespace Pixel
             switch (stats)
             {
                 case 0:
-                    chunk.isVerticalChange = hasChange;
+                    chunk.isPhase1Change = hasChange;
                     break;
                 case 1:
-                    chunk.isDiagonalChange = hasChange;
-                    break;
-                case 2:
-                    chunk.isHorizontalChange = hasChange;
-                    break;
+                    chunk.isPhase2Change = hasChange;
+                    break;                
             }
             handler.chunks[index] = chunk;
         }

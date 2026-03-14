@@ -19,9 +19,17 @@ public class FallingSandWorld : MonoBehaviour
     [SerializeField] private int chunkSize;
 
     private PixelConfigLookup pixelLookup;
-
+    private WorldConfig worldConfig;
+    private EntityQuery chunkQuery;
+    private EntityQuery bufferQuery;
     public static FallingSandWorld Instance { get; private set; }
-    public PixelSet PixelSet => pixelSet;
+
+    public PixelConfigLookup PixelLookup => pixelLookup;
+    public WorldConfig WorldConfig => worldConfig;
+    public DynamicBuffer<PixelData> PixelBuffer => bufferQuery.GetSingletonBuffer<PixelData>();
+    public DynamicBuffer<Chunk> Chunks => chunkQuery.GetSingletonBuffer<Chunk>();
+
+    public PixelSet PixelSet => pixelSet;   
 
     void Awake()
     {
@@ -38,7 +46,7 @@ public class FallingSandWorld : MonoBehaviour
 
     void Start()
     {
-        Application.targetFrameRate = frame;
+        Application.targetFrameRate = frame;        
     }
 
     void OnDestroy()
@@ -53,13 +61,19 @@ public class FallingSandWorld : MonoBehaviour
         int totalSize = worldHeight * worldWidth;
         pixelBuffer.EnsureCapacity(totalSize);
         for (int i = 0; i < totalSize; i++)
-            pixelBuffer.Add(new() { type = PixelType.Empty, frameIdx = 0 });
+            pixelBuffer.Add(new()
+            {
+                type = PixelType.Empty,
+                frameIdx = 0,
+                temperature = TempreatureConfig.Default.baseTemp
+            });
+        bufferQuery = em.CreateEntityQuery(typeof(PixelData));
 
         int2 chunkCnt = new((worldWidth + chunkSize - 1) / chunkSize,
             (worldHeight + chunkSize - 1) / chunkSize
         );
-        var chunkBuffer = em.GetBuffer<Chunk>(em.CreateSingletonBuffer<Chunk>());
-        chunkBuffer.EnsureCapacity(chunkCnt.x * chunkCnt.y);
+        var chunks = em.GetBuffer<Chunk>(em.CreateSingletonBuffer<Chunk>());
+        chunks.EnsureCapacity(chunkCnt.x * chunkCnt.y);
         for (int i = 0; i < chunkCnt.y; i++)
         {
             for (int j = 0; j < chunkCnt.x; j++)
@@ -70,11 +84,12 @@ public class FallingSandWorld : MonoBehaviour
                     forceDiryFrame = Time.frameCount,
                     isBlack = ((i + j) & 1) == 0
                 };
-                chunkBuffer.Add(chunk);
+                chunks.Add(chunk);
             }
         }
+        chunkQuery = em.CreateEntityQuery(typeof(Chunk));
 
-        var worldConfig = new WorldConfig()
+        worldConfig = new WorldConfig()
         {
             width = worldWidth,
             height = worldHeight,
@@ -83,12 +98,27 @@ public class FallingSandWorld : MonoBehaviour
         };
         em.CreateSingleton(worldConfig);
 
-        var pixelConfigs = pixelSet.configs;
+        var pixelConfigSOs = pixelSet.configs;
         pixelLookup = new PixelConfigLookup(Allocator.Persistent);
-        foreach (var config in pixelConfigs)
+        int reactionRuleOffset = 0;
+        foreach (var configSo in pixelConfigSOs)
         {
+            var config = configSo.config;
+            if (!config.tempConfig.IsSet)
+                config.tempConfig = TempreatureConfig.Default;
+            if (configSo.reactionRules.Count > 0)
+            {
+                config.reactionRuleCount = configSo.reactionRules.Count;
+                config.reactionRuleOffset = reactionRuleOffset;
+                reactionRuleOffset += configSo.reactionRules.Count;
+                foreach (var reactionRule in configSo.reactionRules)
+                {
+                    pixelLookup.AddReactionRule(reactionRule);
+                }
+            }
+            Debug.Log($"Add Pixel Config {config.type} : temperature {config.tempConfig.baseTemp}");
             pixelLookup.AddConfig(config.type, config);
-        }
+        }        
         em.CreateSingleton(pixelLookup);
     }
 }

@@ -3,7 +3,7 @@
         "**/.DS_Store": true,
         "**/.git": true,
         "**/.vs": true,
-        "**/*.slnx" : true,
+        "**/*.slnx": true,
         "**/.gitmodules": true,
         "**/.vsconfig": true,
         "**/*.booproj": true,
@@ -68,5 +68,6 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "FallingSampleByDots.slnx",        
+    "dotnet.defaultSolution": "FallingSampleByDots.slnx",
+    "vstuc.refreshOnSave": true,
 }

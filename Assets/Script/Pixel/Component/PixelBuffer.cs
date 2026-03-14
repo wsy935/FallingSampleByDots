@@ -1,6 +1,7 @@
 using System;
 using Unity.Collections;
 using Unity.Entities;
+using UnityEngine;
 
 namespace Pixel
 {
@@ -9,15 +10,18 @@ namespace Pixel
     {
         public PixelType type;
         public int frameIdx;
-        /// <summary>
-        /// 像素种子 (0~255)，创建时基于空间位置+随机性生成，用于 Shader 确定最终颜色。
-        /// 生成后不再改变，像素移动时颜色保持一致。
-        /// </summary>
-        public byte seed;
-        /// <summary>
-        /// 调制值 (0~255)，表示外部影响（火烧、侵蚀等）对颜色的叠加程度。
-        /// 0 = 无影响, 255 = 最大影响。
-        /// </summary>
-        public byte modulate;
+        public float temperature;
+        public float survivalTime;
+
+        public static PixelData NewPixel(PixelType type,in PixelConfig config)
+        {
+            return new PixelData
+            {
+                type = type,
+                frameIdx = 0,
+                temperature = config.tempConfig.baseTemp,
+                survivalTime = 0
+            };
+        }
     }
 }

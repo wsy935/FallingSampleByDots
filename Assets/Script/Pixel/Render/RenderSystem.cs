@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Pixel
 {
-    [UpdateBefore(typeof(SimulationSystem))]
+    [UpdateAfter(typeof(MoveSystem))]
     public partial class RenderSystem : SystemBase
     {
         protected override void OnUpdate()
@@ -18,6 +18,7 @@ namespace Pixel
             var job = new ExtractPixelJob()
             {
                 renderBuffer = renderBuffer,
+                pixelConfigLookup = SystemAPI.GetSingleton<PixelConfigLookup>(),
                 buffer = SystemAPI.GetSingletonBuffer<PixelData>(),
                 chunks = chunks,
                 worldConfig = SystemAPI.GetSingleton<WorldConfig>(),
@@ -29,18 +30,12 @@ namespace Pixel
         }
     }
 
-    /// <summary>
-    /// 将像素数据编码写入纹理，供 Shader 解码渲染：
-    /// R = PixelType ID (0~255)
-    /// G = seed (0~255) 像素种子，决定基础颜色变化
-    /// B = modulate (0~255) 调制值，外部影响（火烧/侵蚀）
-    /// A = 255 (不透明标记，Shader 中根据 type 决定透明度)
-    /// </summary>
     [BurstCompile]
     public struct ExtractPixelJob : IJobParallelFor
     {
         [NativeDisableParallelForRestriction] public NativeArray<Color32> renderBuffer;
         [ReadOnly] public DynamicBuffer<PixelData> buffer;
+        [ReadOnly] public PixelConfigLookup pixelConfigLookup;
         [ReadOnly] public DynamicBuffer<Chunk> chunks;
         [ReadOnly] public WorldConfig worldConfig;
         [ReadOnly] public int frameCount;
@@ -60,14 +55,13 @@ namespace Pixel
                     int2 pos = worldConfig.GetCoordsByChunk(chunk.pos, j, i);
                     int idx = worldConfig.CoordsToIdx(pos.x, pos.y);
                     var pixelData = buffer[idx];
-
-                    // 编码像素数据到 RGBA 通道
-                    renderBuffer[idx] = new Color32(
-                        (byte)pixelData.type,       // R: 像素类型 ID
-                        pixelData.seed,             // G: 像素种子
-                        pixelData.modulate,         // B: 调制值
-                        255                         // A: 不透明标记
-                    );
+                    var config = pixelConfigLookup.GetConfig(pixelData.type);
+                    var finalColor = config.color;
+                    // float blackLevel = 1 - math.unlerp(config.tempConfig.baseTemp, config.tempConfig.maxTemp, pixelData.temperature);
+                    // finalColor.r = (byte)(finalColor.r * blackLevel);
+                    // finalColor.g = (byte)(finalColor.g * blackLevel);
+                    // finalColor.b = (byte)(finalColor.b * blackLevel);
+                    renderBuffer[idx] = finalColor;
                 }
             }
         }

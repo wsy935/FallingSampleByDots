@@ -7,7 +7,7 @@ using Random = Unity.Mathematics.Random;
 namespace Pixel
 {
     [BurstCompile]
-    public struct SimulationHandler
+    public struct MoveHandler
     {
         public PixelConfigLookup pixelConfigLookup;
         public DynamicBuffer<PixelData> buffer;
@@ -18,7 +18,7 @@ namespace Pixel
 
 
         /// <summary>
-        /// 纯检测：判断给定配置的源像素是否可以移动到 tar 位置
+        /// 纯检测：判断源像素是否可以移动到 tar 位置
         /// </summary>
         private bool CanMoveTo(in PixelConfig srcConfig, int tarX, int tarY)
         {
@@ -29,10 +29,10 @@ namespace Pixel
 
             if (tarPixel.type == PixelType.Empty)
                 return true;
-            if (tarPixel.frameIdx == frameCount && tarPixel.type != PixelType.Empty)
-                return false;
-
+            
             var tarConfig = pixelConfigLookup.GetConfig(tarPixel.type);
+            if (tarConfig.isStatic)
+                return false;
             bool canMove = srcConfig.matType switch
             {
                 MaterialType.Gas => srcConfig.density < tarConfig.density,
@@ -180,6 +180,7 @@ namespace Pixel
             return origin;
         }
 
+        //设置了水平速度的可以水平移动
         public int2 MoveHorizontal(int x, int y, in PixelConfig config)
         {
             int2 origin = new(x, y);
