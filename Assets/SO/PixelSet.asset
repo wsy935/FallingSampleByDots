@@ -60,15 +60,7 @@ MonoBehaviour:
         baseTemp: 0
         maxTemp: 0
         rate: 0
-    reactionRules:
-    - type: 1
-      effect: 2
-      min: 100
-      max: 100
-      product: 5
-      targetType: 0
-      selfProduct: 0
-      targetProduct: 0
+    reactionRules: []
   - config:
       type: 4
       matType: 0
@@ -121,11 +113,11 @@ MonoBehaviour:
         serializedVersion: 2
         rgba: 2952807935
       tempConfig:
-        baseTemp: 100
+        baseTemp: 500
         maxTemp: 1000
-        rate: 0
+        rate: 0.5
     reactionRules:
-    - type: 1
+    - type: 2
       effect: 1
       min: 0
       max: 0
@@ -133,7 +125,7 @@ MonoBehaviour:
       targetType: 0
       selfProduct: 0
       targetProduct: 0
-    - type: 0
+    - type: 2
       effect: 2
       min: 1.5
       max: 2
@@ -141,6 +133,14 @@ MonoBehaviour:
       targetType: 0
       selfProduct: 0
       targetProduct: 0
+    - type: 1
+      effect: 3
+      min: 0
+      max: 0
+      product: 1
+      targetType: 3
+      selfProduct: 1
+      targetProduct: 5
   - config:
       type: 7
       matType: 2
@@ -157,11 +157,11 @@ MonoBehaviour:
         maxTemp: 1000
         rate: 0.1
     reactionRules:
-    - type: 3
+    - type: 1
       effect: 3
       min: 0
       max: 0
-      product: 0
+      product: 1
       targetType: 3
       selfProduct: 9
       targetProduct: 5
@@ -181,7 +181,7 @@ MonoBehaviour:
         maxTemp: 0
         rate: 0
     reactionRules:
-    - type: 4
+    - type: 2
       effect: 2
       min: 0.75
       max: 1.5
@@ -201,7 +201,7 @@ MonoBehaviour:
         serializedVersion: 2
         rgba: 4282056738
       tempConfig:
-        baseTemp: 23
+        baseTemp: 0
         maxTemp: 0
         rate: 0
     reactionRules: []

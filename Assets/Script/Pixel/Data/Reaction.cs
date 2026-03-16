@@ -6,11 +6,8 @@ namespace Pixel
     public enum ReactionType
     {
         None = 0,
-        TemperatureAbove = 1,
-        TemperatureBelow = 2,
-        ContactWith = 3,
-        LifetimeExpired = 4,
-        ProgressComplete = 5,
+        ContactWith = 1,
+        LifetimeExpired = 2,
     }
 
     public enum ReactionEffect

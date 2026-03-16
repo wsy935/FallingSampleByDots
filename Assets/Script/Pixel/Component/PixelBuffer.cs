@@ -14,7 +14,7 @@ namespace Pixel
         public float survivalTime;
 
         public static PixelData NewPixel(PixelType type,in PixelConfig config)
-        {
+        {            
             return new PixelData
             {
                 type = type,

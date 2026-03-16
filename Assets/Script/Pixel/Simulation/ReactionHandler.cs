@@ -18,8 +18,8 @@ namespace Pixel
         /// <summary>
         /// 检查周围是否有特定类型的相邻像素
         /// </summary>
-        public bool HasAdjacentPixelType(int x, int y, PixelType targetType)
-        {
+        private bool TryTansformAdjacent(int x, int y, in ReactionRule reactionRule)
+        {                        
             for (int i = -1; i <= 1; i++)
             {
                 for (int j = -1; j <= 1; j++)
@@ -31,35 +31,15 @@ namespace Pixel
                         continue;
 
                     int idx = worldConfig.CoordsToIdx(checkX, checkY);                    
-                    if (buffer[idx].type == targetType)
-                        return true;
-                }
-            }
-            return false;
-        }
-
-        private void TransformAdjacent(int x, int y, in ReactionRule reactionRule)
-        {
-            int sourceIdx = worldConfig.CoordsToIdx(x, y);
-            for (int i = -1; i <= 1; i++)
-            {
-                for (int j = -1; j <= 1; j++)
-                {                
-                    int checkX = x + j;
-                    int checkY = y + i;
-
-                    if ((checkX == x && checkY == y) || !worldConfig.IsInWorld(checkX, checkY))
-                        continue;
-
-                    int idx = worldConfig.CoordsToIdx(checkX, checkY);
-                    var pixel = buffer[idx];
-
-                    if (pixel.type == reactionRule.targetProduct)
+                    if (buffer[idx].type == reactionRule.targetType)
                     {
+                        int sourceIdx = worldConfig.CoordsToIdx(x, y);
                         buffer[idx] = PixelData.NewPixel(reactionRule.targetProduct, pixelConfigLookup.GetConfig(reactionRule.targetProduct));
                         buffer[sourceIdx] = PixelData.NewPixel(reactionRule.selfProduct, pixelConfigLookup.GetConfig(reactionRule.selfProduct));
+                        
                         int chunkIdx = worldConfig.GetChunkIdxByWorld(checkX, checkY);
                         int sourceChunkIdx = worldConfig.GetChunkIdxByWorld(x, y);
+                        
                         var chunk = chunks[chunkIdx];
                         chunk.forceDiryFrame = frameCount;
                         chunks[chunkIdx] = chunk;
@@ -67,10 +47,11 @@ namespace Pixel
                         var sourceChunk = chunks[sourceChunkIdx];
                         sourceChunk.forceDiryFrame = frameCount;
                         chunks[sourceChunkIdx] = sourceChunk;
-                        return;
-                    }
+                        return true;
+                    }                        
                 }
             }
+            return false;
         }
 
         /// <summary>
@@ -133,10 +114,8 @@ namespace Pixel
                 var rule = pixelConfigLookup.GetReactionRule(reactionIdx);
                 float threshold = random.NextFloat(rule.min, rule.max);
                 bool triggerReaction = rule.type switch
-                {
-                    ReactionType.TemperatureAbove => pixel.temperature >= threshold,
-                    ReactionType.TemperatureBelow => pixel.temperature <= threshold,
-                    ReactionType.ContactWith => HasAdjacentPixelType(x, y, rule.targetProduct),
+                {                    
+                    ReactionType.ContactWith => TryTansformAdjacent(x, y, rule),
                     ReactionType.LifetimeExpired => pixel.survivalTime >= threshold,
                     _ => false
                 };
@@ -152,10 +131,7 @@ namespace Pixel
 
                         case ReactionEffect.SpawnSelf:
                             TransformSelfToProduct(x, y, rule.product);
-                            break;
-                        case ReactionEffect.TransformAdjacent:
-                            TransformAdjacent(x, y, rule);
-                            break;
+                            break;                        
                     }
                 }
             }

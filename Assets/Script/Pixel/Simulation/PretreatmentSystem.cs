@@ -60,8 +60,7 @@ namespace Pixel
                         continue;
                     int idx = worldConfig.CoordsToIdx(pos.x,pos.y);
                     if (buffer[idx].type == PixelType.Empty) continue;
-                    UpdateSurvivalTime(idx);
-                    UpdateTemperature(idx,pos.x, pos.y);
+                    UpdateSurvivalTime(idx);                    
                 }
             }
         }
@@ -72,40 +71,6 @@ namespace Pixel
             // 每帧增加存活时间
             pixel.survivalTime += deltaTime;
             buffer[idx] = pixel;
-        }
-
-        /// <summary>
-        /// 更新指定位置的温度
-        /// </summary>
-        public void UpdateTemperature(int idx,int x, int y)
-        {
-            var pixel = buffer[idx];
-            var config = pixelConfigLookup.GetConfig(pixel.type);
-            if (config.matType == MaterialType.Gas)
-                return;
-            float totalDeltaT = 0;
-            for (int i = -1; i <= 1; i++)
-            {
-                for (int j = -1; j <= 1; j++)
-                {
-                    if (i == 0 && j == 0)
-                        continue;
-                    int checkX = x + j;
-                    int checkY = y + i;
-                    if (!worldConfig.IsInWorld(checkX, checkY))
-                        continue;
-
-                    int tarIdx = worldConfig.CoordsToIdx(checkX, checkY);
-                    var tarPixel = buffer[tarIdx];                    
-                    var tarPixelConfig = pixelConfigLookup.GetConfig(tarPixel.type);
-                    if(tarPixelConfig.matType != MaterialType.Solid && tarPixelConfig.matType != MaterialType.Liquid)
-                        continue;
-                    float k_eff = (config.tempConfig.rate + tarPixelConfig.tempConfig.rate) * 0.5f;
-                    totalDeltaT += k_eff * (tarPixel.temperature - pixel.temperature);
-                }
-            }
-            pixel.temperature += totalDeltaT * deltaTime;
-            buffer[idx] = pixel;
-        }
+        }       
     }
 }
